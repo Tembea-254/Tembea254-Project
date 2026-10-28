@@ -67,7 +67,8 @@ export function Landing() {
   // Middleware sends signed-out visitors here with ?callbackUrl=… — open the sign-in modal for them.
   useEffect(() => {
     const cb = params.get("callbackUrl");
-    if (cb || params.get("error") || params.get("login")) {
+    // (failed sign-ins, ?error=…, are handled by AuthProvider so the reason is shown)
+    if (!params.get("error") && (cb || params.get("login"))) {
       let path = "/dashboard";
       try {
         const u = new URL(cb || "/dashboard", window.location.origin);
@@ -75,7 +76,7 @@ export function Landing() {
       } catch {
         /* keep default */
       }
-      openLogin({ callbackUrl: path, reason: params.get("error") ? "Sign-in didn't complete — try again" : undefined });
+      openLogin({ callbackUrl: path });
     }
   }, [params, openLogin]);
 

@@ -10,9 +10,9 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/primitives";
 import { FacebookIcon, GoogleIcon } from "./brand-icons";
 
-type Options = { google: boolean; facebook: boolean; demo: boolean };
+type Options = { google: boolean; facebook: boolean; demo: boolean; emailSignup: boolean; dev: boolean };
 
-export function LoginModal({ open, onClose, callbackUrl, reason }: { open: boolean; onClose: () => void; callbackUrl: string; reason?: string }) {
+export function LoginModal({ open, onClose, callbackUrl, reason, initialError }: { open: boolean; onClose: () => void; callbackUrl: string; reason?: string; initialError?: string }) {
   const [view, setView] = useState<"social" | "signup" | "login">("social");
   const [opts, setOpts] = useState<Options | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -22,14 +22,14 @@ export function LoginModal({ open, onClose, callbackUrl, reason }: { open: boole
 
   useEffect(() => {
     if (!open) return;
-    setError(null);
+    setError(initialError ?? null);
     setNotice(null);
     setView("social");
     fetch("/api/auth/options")
       .then((r) => r.json())
       .then(setOpts)
-      .catch(() => setOpts({ google: false, facebook: false, demo: true }));
-  }, [open]);
+      .catch(() => setOpts({ google: false, facebook: false, demo: true, emailSignup: true, dev: false }));
+  }, [open, initialError]);
 
   useEffect(() => {
     if (!open) return;
@@ -46,7 +46,9 @@ export function LoginModal({ open, onClose, callbackUrl, reason }: { open: boole
     setError(null);
     if (opts && !opts[provider]) {
       setNotice(
-        `${provider === "google" ? "Google" : "Facebook"} sign-in isn't switched on for this server yet. Add the ${provider.toUpperCase()}_CLIENT_ID and ${provider.toUpperCase()}_CLIENT_SECRET keys to .env.local (see README), or continue with email below.`,
+        opts.dev
+          ? `${provider === "google" ? "Google" : "Facebook"} sign-in isn't switched on yet. Add ${provider.toUpperCase()}_CLIENT_ID and ${provider.toUpperCase()}_CLIENT_SECRET to .env.local (or your host's environment variables) and restart.`
+          : `${provider === "google" ? "Google" : "Facebook"} sign-in is coming soon. Please continue with email for now.`,
       );
       return;
     }
@@ -60,8 +62,8 @@ export function LoginModal({ open, onClose, callbackUrl, reason }: { open: boole
     try {
       if (view === "signup") {
         const res = await fetch("/api/auth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(form) });
-        const data = (await res.json()) as { error?: string };
-        if (!res.ok) throw new Error(data.error || "Sign-up failed");
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) throw new Error(data.error || "Sign-up failed. Please try again.");
       }
       const r = await signIn("email", { email: form.email, password: form.password, redirect: false, callbackUrl });
       if (!r || r.error) throw new Error(view === "login" ? "That email and password don't match an account." : "Account created, but sign-in failed — try logging in.");
@@ -111,12 +113,17 @@ export function LoginModal({ open, onClose, callbackUrl, reason }: { open: boole
 
             {view === "social" ? (
               <div className="mt-6 space-y-3">
-                <SocialButton onClick={() => social("google")} busy={busy === "google"} icon={<GoogleIcon />}>
-                  Continue with Google
-                </SocialButton>
-                <SocialButton onClick={() => social("facebook")} busy={busy === "facebook"} icon={<FacebookIcon />}>
-                  Continue with Facebook
-                </SocialButton>
+                {error && <p className="rounded-2xl bg-maasai-50 p-3 text-left text-sm text-maasai-600" role="alert">{error}</p>}
+                {(!opts || opts.google || opts.dev) && (
+                  <SocialButton onClick={() => social("google")} busy={busy === "google"} icon={<GoogleIcon />}>
+                    Continue with Google
+                  </SocialButton>
+                )}
+                {(!opts || opts.facebook || opts.dev) && (
+                  <SocialButton onClick={() => social("facebook")} busy={busy === "facebook"} icon={<FacebookIcon />}>
+                    Continue with Facebook
+                  </SocialButton>
+                )}
                 {notice && <p className="rounded-2xl bg-ochre-50 p-3 text-left text-xs leading-relaxed text-ochre-600">{notice}</p>}
                 <Divider />
                 <Button variant="outline" size="lg" className="w-full" onClick={() => setView("signup")}>
@@ -164,7 +171,10 @@ export function LoginModal({ open, onClose, callbackUrl, reason }: { open: boole
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   className="h-12 rounded-2xl"
                 />
-                {error && <p className="text-sm text-maasai-600">{error}</p>}
+                {view === "signup" && opts && !opts.emailSignup && (
+                  <p className="rounded-2xl bg-ochre-50 p-3 text-xs leading-relaxed text-ochre-600">Email sign-up is being switched on. Please continue with Google for now.</p>
+                )}
+                {error && <p className="text-sm text-maasai-600" role="alert">{error}</p>}
                 <Button type="submit" size="lg" className="w-full" disabled={busy === "email"}>
                   {busy === "email" && <Loader2 className="h-5 w-5 animate-spin" />}
                   {view === "signup" ? "Create account" : "Log in"}

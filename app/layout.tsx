@@ -14,7 +14,15 @@ export const metadata: Metadata = {
   title: { default: "Tembea254 — Discover Kenya", template: "%s · Tembea254" },
   description: "Plan Kenyan trips with AI, preview destinations in immersive virtual walks and talk to locals in their language.",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: { images: [{ url: "/brand/logo-round-full.png", width: 1024, height: 1024, alt: "Tembea254" }] },
   appleWebApp: { capable: true, title: "Tembea254", statusBarStyle: "default" },
 };
 

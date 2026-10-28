@@ -102,7 +102,7 @@ export function LoginModal({ open, onClose, callbackUrl, reason }: { open: boole
             )}
 
             <div className="flex flex-col items-center text-center">
-              <LogoMark className="h-11 w-11" />
+              <LogoMark className="h-16 w-16 shadow-card" />
               <h2 id="login-title" className="mt-4 text-2xl font-bold">
                 {view === "login" ? "Welcome back" : reason ? reason : "Create a free account to plan with AI"}
               </h2>

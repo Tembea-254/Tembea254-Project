@@ -8,7 +8,7 @@ import { signOut, useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useMounted, useProfile } from "@/lib/hooks/store";
-import { Logo, LogoMark } from "./logo";
+import { Logo } from "./logo";
 import { NAV, isActive } from "./nav";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -31,10 +31,10 @@ function Sidebar({ pathname }: { pathname: string }) {
   const mounted = useMounted();
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[264px] flex-col border-r border-ink/[0.06] bg-white px-4 pb-5 pt-6 lg:flex">
-      <Link href="/dashboard" className="px-2">
-        <Logo />
+      <Link href="/dashboard" className="px-2" aria-label="Tembea254 dashboard">
+        <Logo className="h-11 sm:h-11" />
       </Link>
-      <div className="mt-2 h-1 w-24 rounded-full bg-kenya-stripe px-2 opacity-90 [margin-left:3.6rem]" />
+      <div className="ml-2 mt-3 h-1 w-24 rounded-full bg-kenya-stripe opacity-90" />
       <nav className="mt-8 flex flex-1 flex-col gap-1">
         {NAV.map((item) => {
           const active = isActive(pathname, item.href);
@@ -123,11 +123,8 @@ export function Avatar({ name, image, className }: { name: string; image?: strin
 function MobileTopBar() {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-ink/[0.06] bg-white/85 px-4 py-3 backdrop-blur-xl lg:hidden">
-      <Link href="/dashboard" className="flex items-center gap-2">
-        <LogoMark className="h-8 w-8" />
-        <span className="font-display text-lg font-bold">
-          tembea<span className="text-savanna-500">254</span>
-        </span>
+      <Link href="/dashboard" className="flex items-center" aria-label="Tembea254 dashboard">
+        <Logo className="h-8 sm:h-8" />
       </Link>
       <div className="flex items-center gap-2">
         <MobileMore />

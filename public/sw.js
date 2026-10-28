@@ -1,6 +1,6 @@
 // Tembea254 service worker: cache-first for static assets, network-first for pages.
-const CACHE = "tembea-v2";
-const CORE = ["/", "/icon.svg", "/manifest.webmanifest"];
+const CACHE = "tembea-v5";
+const CORE = ["/", "/icon-192.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));

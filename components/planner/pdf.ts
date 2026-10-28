@@ -51,7 +51,7 @@ export async function buildItineraryPDF(trip: Trip, currency: Currency = "KES"):
   // Prefetch images in parallel
   const coverUrl = trip.cover.includes("images.unsplash.com") ? trip.cover.replace(/w=\d+/, "w=1400") : trip.cover;
   const stopImgs = trip.stops.map((s) => placeMedia(s.placeId).photos[0]);
-  const [cover, ...thumbs] = await Promise.all([toDataURL(coverUrl), ...stopImgs.map((p) => toDataURL(unsplash(p, 900, 560)))]);
+  const [cover, logo, ...thumbs] = await Promise.all([toDataURL(coverUrl), toDataURL("/brand/logo-light.png"), ...stopImgs.map((p) => toDataURL(unsplash(p, 900, 560)))]);
 
   const footer = () => {
     const n = doc.getNumberOfPages();
@@ -73,6 +73,14 @@ export async function buildItineraryPDF(trip: Trip, currency: Currency = "KES"):
   doc.setFillColor(10, 21, 18);
   doc.rect(0, 92, W, 58, "F");
   doc.setGState(new gs({ opacity: 1 }) as never);
+  // brand
+  if (logo) {
+    doc.setGState(new gs({ opacity: 0.6 }) as never);
+    doc.setFillColor(10, 21, 18);
+    doc.roundedRect(M - 4, 9, 56, 18.2, 4, 4, "F");
+    doc.setGState(new gs({ opacity: 1 }) as never);
+    doc.addImage(logo, "PNG", M, 12, 48, 12.2);
+  }
   // stripe
   [INK, RED, GREEN, [242, 177, 58] as [number, number, number]].forEach((c, i) => {
     doc.setFillColor(...c);

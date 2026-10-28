@@ -1,0 +1,12 @@
+{
+  "name": "Tembea254 — Discover Kenya",
+  "short_name": "Tembea254",
+  "description": "AI trip planner, virtual pre-visits and translator for Kenya.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF8F2",
+  "theme_color": "#0E2E24",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

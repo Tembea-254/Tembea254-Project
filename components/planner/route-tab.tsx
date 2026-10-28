@@ -2,13 +2,18 @@
 
 import { Reorder, useDragControls } from "framer-motion";
 import Link from "next/link";
-import { BedDouble, Bus, GripVertical, Minus, Orbit, Plane, Plus, TrainFront, X } from "lucide-react";
+import { BedDouble,
+  ChevronRight, GripVertical, Minus, Orbit, Plus, Sparkles, X } from "lucide-react";
 import { placeMedia } from "@/lib/data/place-media";
 import { useEffect, useState } from "react";
-import { PLACES, PLACE_BY_ID, type Tier } from "@/lib/data/places";
-import { estimateLeg, rebuildFromStops } from "@/lib/planner/engine";
+import { PLACES, PLACE_BY_ID } from "@/lib/data/places";
+import type { Stay } from "@/lib/data/stays";
+import type { TransportMode } from "@/lib/planner/transport";
+import { StayPicker } from "./stay-picker";
+import { TransportPicker } from "./transport-picker";
+import { rebuildFromStops } from "@/lib/planner/engine";
 import type { Stop, Trip } from "@/lib/planner/types";
-import { cn, fmtDuration, money, uid, unsplash, type Currency } from "@/lib/utils";
+import { money, uid, unsplash, type Currency } from "@/lib/utils";
 import { Badge, Card, Select } from "../ui/primitives";
 
 export function RouteTab({
@@ -30,8 +35,20 @@ export function RouteTab({
   const available = PLACES.filter((p) => !order.some((s) => s.placeId === p.id));
 
   const setNights = (id: string, delta: number) => commit(order.map((s) => (s.id === id ? { ...s, nights: Math.max(1, Math.min(10, s.nights + delta)) } : s)));
-  const setStay = (id: string, tier: Tier) =>
-    commit(order.map((s) => (s.id === id ? { ...s, stay: PLACE_BY_ID[s.placeId].stays[tier].name, stayPerNight: PLACE_BY_ID[s.placeId].stays[tier].perNight } : s)));
+  const [picking, setPicking] = useState<string | null>(null);
+  const pickStay = (id: string, chosen: Stay | null) =>
+    commit(
+      order.map((s) => {
+        if (s.id !== id) return s;
+        if (!chosen) {
+          const ai = PLACE_BY_ID[s.placeId].stays[trip.budget];
+          return { ...s, stay: ai.name, stayPerNight: ai.perNight, stayId: undefined };
+        }
+        return { ...s, stay: chosen.name, stayPerNight: chosen.perNight, stayId: chosen.id };
+      }),
+    );
+  const setArrive = (id: string, mode: TransportMode) => commit(order.map((s) => (s.id === id ? { ...s, arriveBy: mode } : s)));
+  const pickingStop = order.find((s) => s.id === picking);
   const remove = (id: string) => order.length > 1 && commit(order.filter((s) => s.id !== id));
   const add = (placeId: string) => {
     const p = PLACE_BY_ID[placeId];
@@ -53,16 +70,25 @@ export function RouteTab({
       <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-0">
         {order.map((s, i) => (
           <div key={s.id}>
-            {i > 0 && <LegPill from={order[i - 1].placeId} to={s.placeId} currency={currency} travelers={trip.travelers} />}
+            {i > 0 && (
+              <TransportPicker
+                from={order[i - 1].placeId}
+                to={s.placeId}
+                travelers={trip.travelers}
+                currency={currency}
+                value={s.arriveBy}
+                onChange={(m) => setArrive(s.id, m)}
+              />
+            )}
             <StopRow
               stop={s}
               index={i}
-              tier={tierOf(s)}
+              currency={currency}
               onDragEnd={() => {
                 if (order.map((o) => o.id).join() !== trip.stops.map((o) => o.id).join()) commit(order);
               }}
               onNights={(d) => setNights(s.id, d)}
-              onStay={(t) => setStay(s.id, t)}
+              onChooseStay={() => setPicking(s.id)}
               onRemove={() => remove(s.id)}
               onHover={() => onFocusPlace(s.placeId)}
               canRemove={order.length > 1}
@@ -70,6 +96,18 @@ export function RouteTab({
           </div>
         ))}
       </Reorder.Group>
+
+      {pickingStop && (
+        <StayPicker
+          open
+          stop={pickingStop}
+          aiPickName={PLACE_BY_ID[pickingStop.placeId].stays[trip.budget].name}
+          travelers={trip.travelers}
+          currency={currency}
+          onClose={() => setPicking(null)}
+          onPick={(st) => pickStay(pickingStop.id, st)}
+        />
+      )}
 
       {available.length > 0 && (
         <Card className="mt-5 flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
@@ -93,28 +131,24 @@ export function RouteTab({
   );
 }
 
-function tierOf(s: Stop): Tier {
-  const st = PLACE_BY_ID[s.placeId].stays;
-  return (Object.keys(st) as Tier[]).find((t) => st[t].name === s.stay) ?? "mid";
-}
 
 function StopRow({
   stop,
   index,
-  tier,
+  currency,
   onDragEnd,
   onNights,
-  onStay,
+  onChooseStay,
   onRemove,
   onHover,
   canRemove,
 }: {
   stop: Stop;
   index: number;
-  tier: Tier;
+  currency: Currency;
   onDragEnd: () => void;
   onNights: (d: number) => void;
-  onStay: (t: Tier) => void;
+  onChooseStay: () => void;
   onRemove: () => void;
   onHover: () => void;
   canRemove: boolean;
@@ -123,7 +157,8 @@ function StopRow({
   const p = PLACE_BY_ID[stop.placeId];
   return (
     <Reorder.Item value={stop} dragListener={false} dragControls={controls} onDragEnd={onDragEnd} className="relative" onMouseEnter={onHover}>
-      <Card className="flex gap-3 p-3 sm:gap-4">
+      <Card className="p-3">
+        <div className="flex gap-3 sm:gap-4">
         <button
           className="hidden cursor-grab touch-none items-center text-ink-muted active:cursor-grabbing sm:flex"
           onPointerDown={(e) => controls.start(e)}
@@ -131,7 +166,7 @@ function StopRow({
         >
           <GripVertical className="h-5 w-5" />
         </button>
-        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl sm:h-28 sm:w-32" onPointerDown={(e) => controls.start(e)}>
+        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl sm:w-28" onPointerDown={(e) => controls.start(e)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={unsplash(p.image, 300, 300)} alt={p.name} className="h-full w-full object-cover" draggable={false} />
           <span className="absolute left-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-savanna-500 font-display text-xs font-bold text-white ring-2 ring-white">{index + 1}</span>
@@ -165,45 +200,31 @@ function StopRow({
                 <Orbit className="h-3.5 w-3.5" /> 360°
               </Link>
             )}
-            <label className="flex min-w-0 items-center gap-2 text-sm text-ink-soft">
-              <BedDouble className="h-4 w-4 shrink-0 text-ink-muted" />
-              <select
-                value={tier}
-                onChange={(e) => onStay(e.target.value as Tier)}
-                className="min-w-0 truncate rounded-lg bg-transparent py-1 pr-1 font-medium text-ink focus:outline-none"
-                aria-label={`Stay in ${p.name}`}
-              >
-                {(Object.keys(p.stays) as Tier[]).map((t) => (
-                  <option key={t} value={t}>
-                    {p.stays[t].name} ({t})
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
         </div>
+        </div>
+          <button
+          onClick={onChooseStay}
+          className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-ink/10 bg-sand-50/60 p-2.5 text-left transition-colors hover:border-savanna-400 hover:bg-savanna-50/50"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-savanna-600 shadow-card">
+            <BedDouble className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+              {stop.stayId ? "Your choice" : <><Sparkles className="h-3 w-3 text-dusk-500" /> AI pick</>}
+            </span>
+            <span className="block truncate font-display text-sm font-semibold">{stop.stay}</span>
+            <span className="block text-[11px] font-semibold text-savanna-600">Compare stays</span>
+          </span>
+          <span className="shrink-0 text-right">
+            <span className="block font-display text-sm font-bold">{money(stop.stayPerNight, currency)}</span>
+            <span className="block text-[10px] text-ink-muted">per night</span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted" />
+        </button>
       </Card>
     </Reorder.Item>
   );
 }
 
-function LegPill({ from, to, currency, travelers }: { from: string; to: string; currency: Currency; travelers: number }) {
-  const leg = estimateLeg(from, to);
-  const Icon = leg.mode === "flight" ? Plane : leg.mode === "train" ? TrainFront : Bus;
-  return (
-    <div className="flex items-center gap-3 py-2 pl-[58px] sm:pl-[92px]">
-      <span className="h-6 w-px border-l-2 border-dashed border-ink/15" />
-      <span
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
-          leg.mode === "flight" ? "bg-dusk-50 text-dusk-500" : leg.mode === "train" ? "bg-ochre-50 text-ochre-600" : "bg-maasai-50 text-maasai-600",
-        )}
-      >
-        <Icon className="h-3.5 w-3.5" /> {fmtDuration(leg.minutes)} · {leg.label}
-      </span>
-      <span className="text-xs text-ink-muted">
-        {leg.km} km · ~{money(leg.cost * travelers, currency)}
-      </span>
-    </div>
-  );
-}

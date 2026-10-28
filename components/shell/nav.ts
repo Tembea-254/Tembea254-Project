@@ -1,4 +1,4 @@
-import { Headset, Home, Languages, Route, ShieldAlert, ShoppingBag, UserRound, type LucideIcon } from "lucide-react";
+import { Headset, Home, Languages, Route, ShieldAlert, ShoppingBag, UserRound, Users, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -14,7 +14,8 @@ export const NAV: NavItem[] = [
   { href: "/vr", label: "VR Experiences", short: "VR", icon: Headset },
   { href: "/planner", label: "AI Trip Planner", short: "Plan", icon: Route },
   { href: "/translator", label: "Translator", short: "Translate", icon: Languages },
-  { href: "/marketplace", label: "Marketplace", short: "Market", icon: ShoppingBag, soon: true },
+  { href: "/community", label: "Community", short: "Community", icon: Users },
+  { href: "/marketplace", label: "Marketplace", short: "Market", icon: ShoppingBag },
   { href: "/safety", label: "Safety & Alerts", short: "Safety", icon: ShieldAlert, soon: true },
   { href: "/profile", label: "Profile & Settings", short: "Profile", icon: UserRound },
 ];

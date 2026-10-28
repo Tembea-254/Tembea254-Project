@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useMotionValueEvent, useScroll, useSpring, useTransform } from "framer-motion";
 import {
   ArrowRight,
   Backpack,
+  Ticket,
   BedDouble,
   Briefcase,
   CalendarDays,
@@ -22,7 +23,9 @@ import {
   MapPin,
   Menu,
   MessageCircle,
+  Mail,
   Mountain,
+  Phone as Phone2,
   Orbit,
   Radio,
   Route,
@@ -44,10 +47,15 @@ import { IMG } from "@/lib/data/images";
 import { VR_DESTINATIONS } from "@/lib/data/vr";
 import { LANGUAGES } from "@/lib/data/languages";
 import { cn, unsplash } from "@/lib/utils";
+import { SITE, waLink } from "@/lib/site";
+import { SOCIAL_ICONS, WhatsAppIcon } from "../brand/social-icons";
 import { useLoginGate } from "../auth/auth-provider";
 import { Logo } from "../shell/logo";
 import { Button, buttonVariants } from "../ui/button";
 import { IconTile, Phone, Reveal, Swoosh, useTry } from "./kit";
+import { HeroSlides } from "./hero-slides";
+import { Testimonials } from "./testimonials";
+import { POSTS } from "@/lib/data/blog";
 import { MarketMock, PlannerMock, SafetyMock, SocialMock, TranslatorMock, VRMock } from "./mockups";
 
 const SCENES = VR_DESTINATIONS.reduce((a, d) => a + d.scenes.length, 0);
@@ -73,15 +81,18 @@ export function Landing() {
 
   return (
     <div className="overflow-x-clip bg-white">
+      <ScrollProgress />
       <Header />
       <Hero />
       <Trending />
       <Toolkit />
       <Showcase />
       <Numbers />
+      <Testimonials />
       <Travellers />
       <ClosingCTA />
       <Business />
+      <BlogTeaser />
       <FinalCTA />
       <Footer />
     </div>
@@ -106,38 +117,44 @@ const FEATURE_MENU = [
     items: [
       { icon: Headset, label: "360° virtual previews", href: "/vr" },
       { icon: Languages, label: "Translator", href: "/translator" },
-      { icon: Backpack, label: "Packing lists", href: "/planner" },
+      { icon: Ticket, label: "Tours & activities", href: "/planner" },
     ],
   },
   {
     group: "Stay safe & share",
     items: [
       { icon: ShieldCheck, label: "Safety band & SOS", href: "/safety" },
-      { icon: Users, label: "Travel community", href: "/dashboard" },
+      { icon: Users, label: "Travel community", href: "/community" },
       { icon: ShoppingBag, label: "Marketplace", href: "/marketplace" },
     ],
   },
 ];
 
-function Header() {
+export function Header() {
   const { status } = useSession();
   const { openLogin } = useLoginGate();
   const tryIt = useTry();
   const [menu, setMenu] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [compact, setCompact] = useState(false);
+  const { scrollY } = useScroll();
+  useMotionValueEvent(scrollY, "change", (y) => setCompact(y > 40));
   return (
-    <header className="sticky top-0 z-50 bg-ink text-white">
-      <div className="container-page flex h-[72px] items-center gap-8">
+    <header className={cn("sticky top-0 z-50 bg-ink text-white transition-shadow duration-300", compact && "shadow-[0_10px_30px_-12px_rgba(0,0,0,0.45)]")}>
+      <div className={cn("container-page flex items-center gap-3 lg:gap-8 transition-[height] duration-300", compact ? "h-[60px]" : "h-[72px]")}>
         <Link href="/" aria-label="Tembea254 home">
           <Logo light />
         </Link>
         <nav className="hidden items-center gap-1 lg:flex">
-          <a href="#business" className="rounded-full px-4 py-2 font-display text-[15px] font-semibold text-white/85 hover:text-white">
+          <a href="/#business" className="rounded-full px-4 py-2 font-display text-[15px] font-semibold text-white/85 hover:text-white">
             Business
           </a>
-          <a href="#destinations" className="rounded-full px-4 py-2 font-display text-[15px] font-semibold text-white/85 hover:text-white">
+          <a href="/#destinations" className="rounded-full px-4 py-2 font-display text-[15px] font-semibold text-white/85 hover:text-white">
             Destinations
           </a>
+          <Link href="/blog" className="rounded-full px-4 py-2 font-display text-[15px] font-semibold text-white/85 hover:text-white">
+            Blog
+          </Link>
           <div className="relative" onMouseEnter={() => setMenu(true)} onMouseLeave={() => setMenu(false)}>
             <button className="flex items-center gap-1 rounded-full px-4 py-2 font-display text-[15px] font-semibold text-white/85 hover:text-white" onClick={() => setMenu((m) => !m)}>
               Features <ChevronDown className={cn("h-4 w-4 transition-transform", menu && "rotate-180")} />
@@ -172,10 +189,10 @@ function Header() {
             </AnimatePresence>
           </div>
         </nav>
-        <div className="ml-auto flex items-center gap-2 sm:gap-4">
+        <div className="ml-auto flex items-center gap-1 sm:gap-4">
           {status === "authenticated" ? (
-            <Link href="/dashboard" className={buttonVariants({ size: "md" })}>
-              Open dashboard <ArrowRight className="h-4 w-4" />
+            <Link href="/dashboard" className={buttonVariants({ size: "md", className: "h-10 px-3.5 sm:h-11 sm:px-5" })}>
+              <span className="hidden sm:inline">Open</span> Dashboard <ArrowRight className="h-4 w-4" />
             </Link>
           ) : (
             <>
@@ -222,6 +239,9 @@ function Header() {
                   ))}
                 </div>
               ))}
+              <Link href="/blog" onClick={() => setMobile(false)} className="flex items-center gap-3 py-2 font-display text-lg font-semibold">
+                <FileText className="h-5 w-5 text-white/60" /> Blog
+              </Link>
               <Button
                 size="lg"
                 className="w-full"
@@ -252,7 +272,6 @@ function Hero() {
   const [prompt, setPrompt] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const blobY = useTransform(scrollYProgress, [0, 1], [0, 120]);
   const phoneY = useTransform(scrollYProgress, [0, 1], [0, -60]);
 
   const plan = (text = prompt) => {
@@ -261,27 +280,13 @@ function Hero() {
   };
 
   return (
-    <section ref={ref} className="relative overflow-hidden bg-[#F3F8F5]">
-      {/* Stippl-style sweeping photo shape */}
-      <motion.div style={{ y: blobY }} className="pointer-events-none absolute -right-[18%] -top-[10%] hidden h-[125%] w-[72%] lg:block">
-        <div className="h-full w-full overflow-hidden rounded-l-[48%] rounded-r-none">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={unsplash(IMG.dianiPalms, 1600)} alt="" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 rounded-l-[48%] bg-gradient-to-r from-[#F3F8F5] via-[#F3F8F5]/10 to-transparent" />
-        </div>
-      </motion.div>
+    <section ref={ref} className="relative isolate overflow-hidden bg-[#F3F8F5]">
+      {/* Rotating destination imagery — bush, beach, lakes, mountains, coast, city */}
+      <HeroSlides />
 
       <div className="container-page relative grid min-h-[calc(100dvh-72px)] items-center gap-10 py-12 lg:grid-cols-[1fr_0.9fr] lg:py-16">
         <div className="relative z-10">
-          <Reveal>
-            <button onClick={() => tryIt("/dashboard")} className="inline-flex items-center gap-2.5 rounded-full bg-white py-1.5 pl-1.5 pr-4 font-display text-sm font-semibold shadow-card">
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-savanna-500 text-white">
-                <Smartphone className="h-4 w-4" />
-              </span>
-              Get the app
-            </button>
-          </Reveal>
-          <Reveal delay={0.05} className="mt-5 flex items-center gap-3">
+          <Reveal delay={0.05} className="flex items-center gap-3">
             <div className="flex -space-x-2.5">
               {[IMG.maraLion, IMG.lamuDhow, IMG.dianiShore, IMG.amboseliKili, IMG.nairobiNight].map((p) => (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -291,11 +296,6 @@ function Hero() {
             <p className="text-sm text-ink-soft">
               <span className="font-semibold text-ink">{VR_DESTINATIONS.length} destinations</span> · {SCENES} immersive 360° spots
             </p>
-          </Reveal>
-          <Reveal delay={0.1}>
-            <span className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-dusk-50 px-3 py-1.5 font-display text-xs font-semibold text-dusk-500">
-              <Sparkles className="h-3.5 w-3.5" /> Meet your AI travel planner for Kenya
-            </span>
           </Reveal>
           <Reveal delay={0.15}>
             <h1 className="mt-5 text-[44px] font-bold leading-[1.02] sm:text-6xl lg:text-[68px]">
@@ -462,13 +462,10 @@ const TOOLS = [
   { icon: CalendarDays, title: "Day-by-day plan", text: "Game drives, meals and transfers in one editable timeline.", tone: "text-ochre-600 bg-ochre-50" },
   { icon: Orbit, title: "360° previews", text: "Walk every destination before you book — day or night.", tone: "text-dusk-500 bg-dusk-50" },
   { icon: Wallet, title: "Budget tracker", text: "Park fees, stays and food estimated; split costs with your crew.", tone: "text-maasai-500 bg-maasai-50" },
-  { icon: Backpack, title: "Packing list", text: "Safari layers, reef shoes and documents — built for your route.", tone: "text-savanna-600 bg-savanna-50" },
   { icon: Languages, title: "Translator", text: "Swahili, Kikuyu, Luo, Maa, Kalenjin and 12 world languages.", tone: "text-ochre-600 bg-ochre-50" },
   { icon: Radio, title: "Safety band", text: "A wearable with SOS, geofencing and live location for guides.", tone: "text-maasai-500 bg-maasai-50" },
-  { icon: ShoppingBag, title: "Marketplace", text: "Book verified guides, lodges and experiences with M-Pesa.", tone: "text-dusk-500 bg-dusk-50" },
+  { icon: ShoppingBag, title: "Marketplace", text: "Hire verified drivers, guides, photographers and artists ahead of time.", tone: "text-dusk-500 bg-dusk-50" },
   { icon: Users, title: "Community", text: "Share trips, follow travellers and copy routes you love.", tone: "text-savanna-600 bg-savanna-50" },
-  { icon: MessageCircle, title: "WhatsApp & PDF", text: "Send a photo-rich itinerary to anyone in one tap.", tone: "text-ochre-600 bg-ochre-50" },
-  { icon: WifiOff, title: "Works offline", text: "Install it like an app; your trip goes where signal doesn't.", tone: "text-maasai-500 bg-maasai-50" },
   { icon: Sparkles, title: "AI planning", text: "Describe your trip; the planner builds the whole thing.", tone: "text-dusk-500 bg-dusk-50" },
 ];
 
@@ -487,19 +484,19 @@ function Toolkit() {
             <br />
             Every tool you need.
           </h2>
-          <p className="mt-4 text-white/70 sm:text-lg">One prompt gives you the itinerary. Budgets, packing, previews, translation and safety live right next to it.</p>
+          <p className="mt-4 text-white/70 sm:text-lg">One prompt gives you the itinerary. Budgets, 360° previews, translation, bookings and safety live right next to it.</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Button size="lg" onClick={() => tryIt("/planner", "Create a free account to plan with AI")}>
               Start planning now <ArrowRight className="h-5 w-5" />
             </Button>
-            <Button size="lg" variant="glass" onClick={() => tryIt("/dashboard")}>
-              <Download className="h-5 w-5" /> Get the app
+            <Button size="lg" variant="glass" onClick={() => tryIt("/vr", "Sign in to step into Kenya in 360°")}>
+              <Orbit className="h-5 w-5" /> Preview in 360°
             </Button>
           </div>
         </Reveal>
-        <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {TOOLS.map((t, i) => (
-            <Reveal key={t.title} delay={(i % 4) * 0.06}>
+            <Reveal key={t.title} delay={(i % 3) * 0.07}>
               <div className="h-full rounded-3xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur transition-colors hover:bg-white/[0.1]">
                 <span className={cn("grid h-12 w-12 place-items-center rounded-2xl shadow-card", t.tone)}>
                   <t.icon className="h-6 w-6" />
@@ -583,9 +580,9 @@ const STORIES = [
   {
     key: "market",
     eyebrow: "Marketplace",
-    title: "Book local, straight from your itinerary",
-    text: "Verified guides, lodges, safari vans and artisans along your route — paid with M-Pesa or card and dropped into the right day automatically.",
-    points: ["Verified locals", "M-Pesa checkout", "Auto-added to your days"],
+    title: "Hire trusted locals before you land",
+    text: "Drivers and safari vehicles, photographers, local artists and guides in the Maasai Mara, Diani and the South Coast, Tsavo and Nairobi. Every one is checked by Tembea, and you can secure a booking with an M-Pesa deposit.",
+    points: ["Verified IDs & licences", "Book by area", "M-Pesa deposit"],
     href: "/marketplace",
     cta: "Explore the marketplace",
     mock: <MarketMock />,
@@ -781,9 +778,9 @@ function ClosingCTA() {
               <Button size="lg" variant="dark" onClick={() => openLogin()}>
                 Start planning, it&apos;s free <ArrowRight className="h-5 w-5" />
               </Button>
-              <Button size="lg" variant="glass" onClick={() => openLogin()}>
-                <Smartphone className="h-5 w-5" /> Install on your phone
-              </Button>
+              <a href={waLink()} target="_blank" rel="noopener noreferrer" className={buttonVariants({ size: "lg", variant: "glass" })} aria-label="Talk to us on WhatsApp">
+                <WhatsAppIcon className="h-5 w-5" /> Talk to us
+              </a>
             </div>
           </div>
         </div>
@@ -833,20 +830,24 @@ function FinalCTA() {
       <div className="container-page text-center">
         <Reveal>
           <h2 className="text-3xl font-bold sm:text-5xl">
-            Free forever. <Swoosh>Karibu</Swoosh>.
+            Free to start. <Swoosh>Karibu</Swoosh>.
           </h2>
           <ul className="mx-auto mt-8 flex max-w-2xl flex-wrap justify-center gap-3">
             {[
               { icon: Route, t: "Route planning" },
               { icon: Users, t: "Plan with friends" },
               { icon: Orbit, t: "Free 360° spots" },
-              { icon: WifiOff, t: "Offline access" },
-              { icon: MessageCircle, t: "WhatsApp sharing" },
+              { icon: ShoppingBag, t: "Verified local vendors" },
             ].map((x) => (
               <li key={x.t} className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 font-display text-sm font-semibold shadow-card">
                 <x.icon className="h-4 w-4 text-savanna-600" /> {x.t}
               </li>
             ))}
+            <li>
+              <a href={waLink()} target="_blank" rel="noopener noreferrer" className="grid h-11 w-11 place-items-center rounded-full bg-[#25D366] text-white shadow-card transition-transform hover:scale-105" aria-label="WhatsApp">
+                <WhatsAppIcon className="h-5 w-5" />
+              </a>
+            </li>
           </ul>
           <Button className="mt-10" size="lg" onClick={() => openLogin()}>
             Join for free <ArrowRight className="h-5 w-5" />
@@ -857,25 +858,53 @@ function FinalCTA() {
   );
 }
 
-function Footer() {
+export function Footer() {
   const tryIt = useTry();
-  const cols = [
-    { title: "Features", links: [["AI trip planner", "/planner"], ["360° previews", "/vr"], ["Translator", "/translator"], ["Safety band", "/safety"], ["Marketplace", "/marketplace"]] },
-    { title: "Discover", links: VR_DESTINATIONS.slice(0, 6).map((d) => [d.name, `/vr/${d.slug}`]) },
-    { title: "Company", links: [["About Tembea254", "/dashboard"], ["For business", "/dashboard"], ["Contact", "/dashboard"]] },
+  const cols: { title: string; links: [string, string][] }[] = [
+    { title: "Features", links: [["AI trip planner", "/planner"], ["360° previews", "/vr"], ["Translator", "/translator"], ["Community", "/community"], ["Marketplace", "/marketplace"]] },
+    { title: "Discover", links: VR_DESTINATIONS.slice(0, 6).map((d) => [d.name, `/vr/${d.slug}`] as [string, string]) },
+    { title: "Company", links: [["Blog", "/blog"], ["For business", "/#business"], ["What clients say", "/#reviews"]] },
   ];
+  const isPublic = (h: string) => h.startsWith("/blog") || h.startsWith("/#");
   return (
     <footer className="bg-ink pb-10 pt-16 text-white">
-      <div className="container-page grid gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
+      <div className="container-page grid gap-10 md:grid-cols-2 lg:grid-cols-[1.5fr_repeat(3,1fr)]">
         <div>
           <Logo light />
           <p className="mt-4 max-w-xs text-sm text-white/60">Plan Kenya with AI, preview it in 360° and travel it safely. Tembea — let&apos;s go.</p>
-          <div className="mt-5 flex gap-2">
-            {[Globe2, MessageCircle, Smartphone].map((I, i) => (
-              <span key={i} className="grid h-10 w-10 place-items-center rounded-full bg-white/10">
-                <I className="h-4 w-4" />
-              </span>
+          <ul className="mt-5 space-y-2 text-sm">
+            {SITE.phones.map((p) => (
+              <li key={p.e164}>
+                <a href={`tel:${p.e164}`} className="inline-flex items-center gap-2 text-white/85 hover:text-white">
+                  <Phone2 className="h-4 w-4 text-savanna-400" /> {p.display}
+                </a>
+              </li>
             ))}
+            <li>
+              <a href={`mailto:${SITE.email}`} className="inline-flex items-center gap-2 text-white/85 hover:text-white">
+                <Mail className="h-4 w-4 text-savanna-400" /> {SITE.email}
+              </a>
+            </li>
+          </ul>
+          <div className="mt-5 flex gap-2">
+            {(Object.keys(SITE.socials) as (keyof typeof SITE.socials)[]).map((k) => {
+              const I = SOCIAL_ICONS[k];
+              return (
+                <a
+                  key={k}
+                  href={SITE.socials[k]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={k === "twitter" ? "X (Twitter)" : k[0].toUpperCase() + k.slice(1)}
+                  className="grid h-10 w-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-savanna-500"
+                >
+                  <I className="h-[18px] w-[18px]" />
+                </a>
+              );
+            })}
+            <a href={waLink()} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="grid h-10 w-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-[#25D366]">
+              <WhatsAppIcon className="h-[18px] w-[18px]" />
+            </a>
           </div>
         </div>
         {cols.map((c) => (
@@ -884,9 +913,15 @@ function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm text-white/60">
               {c.links.map(([l, h]) => (
                 <li key={l}>
-                  <button onClick={() => tryIt(h)} className="hover:text-white">
-                    {l}
-                  </button>
+                  {isPublic(h) ? (
+                    <Link href={h} className="hover:text-white">
+                      {l}
+                    </Link>
+                  ) : (
+                    <button onClick={() => tryIt(h)} className="hover:text-white">
+                      {l}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -894,7 +929,9 @@ function Footer() {
         ))}
       </div>
       <div className="container-page mt-12 flex flex-col justify-between gap-3 border-t border-white/10 pt-6 text-xs text-white/50 sm:flex-row">
-        <p>© {new Date().getFullYear()} Tembea254 · Nairobi, Kenya</p>
+        <p>
+          © {new Date().getFullYear()} Tembea254 · {SITE.city}
+        </p>
         <p className="flex gap-4">
           <span>Terms & Conditions</span>
           <span>Privacy</span>
@@ -902,5 +939,47 @@ function Footer() {
         </p>
       </div>
     </footer>
+  );
+}
+
+function ScrollProgress() {
+  const { scrollYProgress } = useScroll();
+  const x = useSpring(scrollYProgress, { stiffness: 120, damping: 30, restDelta: 0.001 });
+  return <motion.div style={{ scaleX: x }} className="fixed inset-x-0 top-0 z-[60] h-1 origin-left bg-gradient-to-r from-savanna-500 via-ochre-400 to-maasai-500" />;
+}
+
+function BlogTeaser() {
+  const posts = POSTS.slice(0, 3);
+  return (
+    <section className="container-page pb-20 sm:pb-28">
+      <Reveal className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">From the blog</p>
+          <h2 className="mt-2 text-3xl font-bold sm:text-4xl">Local know-how before you go</h2>
+        </div>
+        <Link href="/blog" className="inline-flex items-center gap-1.5 font-display font-semibold text-savanna-600 hover:underline">
+          All stories <ArrowRight className="h-4 w-4" />
+        </Link>
+      </Reveal>
+      <div className="mt-8 grid gap-6 md:grid-cols-3">
+        {posts.map((p, i) => (
+          <Reveal key={p.slug} delay={i * 0.08}>
+            <Link href={`/blog/${p.slug}`} className="group block h-full overflow-hidden rounded-3xl bg-white shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-lift">
+              <div className="h-48 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={unsplash(p.cover, 700, 420)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              </div>
+              <div className="p-5">
+                <p className="font-display text-xs font-semibold uppercase tracking-wider text-savanna-600">
+                  {p.category} · {p.readMins} min read
+                </p>
+                <p className="mt-2 font-display text-lg font-bold leading-snug">{p.title}</p>
+                <p className="mt-2 line-clamp-2 text-sm text-ink-soft">{p.excerpt}</p>
+              </div>
+            </Link>
+          </Reveal>
+        ))}
+      </div>
+    </section>
   );
 }

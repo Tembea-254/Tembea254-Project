@@ -249,7 +249,7 @@ export function PlannerHome() {
               <h2 className="text-2xl font-bold">Pick up where you left off</h2>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr))]">
             {sortedTrips.map((t) => (
               <TripCard key={t.id} trip={t} currency={profile.currency} onDelete={() => deleteTrip(t.id)} />
             ))}
@@ -262,9 +262,9 @@ export function PlannerHome() {
         <p className="eyebrow">Recommended routes</p>
         <h2 className="text-2xl font-bold sm:text-3xl">Start from a proven Kenya route</h2>
         <p className="mt-2 max-w-xl text-ink-soft">You start with the route as your base. Everything after that is yours — tweak stops, stays and days however you like.</p>
-        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr))]">
           {SAMPLE_ROUTES.map((r) => (
-            <Card key={r.id} className="group overflow-hidden">
+            <Card key={r.id} className="group flex flex-col overflow-hidden">
               <div className="relative h-44 overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={unsplash(r.image, 800, 400)} alt={r.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
@@ -272,13 +272,13 @@ export function PlannerHome() {
                   {r.days} DAYS
                 </Badge>
               </div>
-              <div className="p-5">
+              <div className="flex flex-1 flex-col p-5">
                 <p className="text-xs font-semibold text-savanna-600">{r.season}</p>
                 <h3 className="mt-1 text-lg font-bold">{r.title}</h3>
                 <p className="text-sm text-ink-muted">{r.stops}</p>
-                <p className="mt-2 text-sm text-ink-soft">{r.blurb}</p>
+                <p className="mb-4 mt-2 text-sm text-ink-soft">{r.blurb}</p>
                 <Button
-                  className="mt-4 w-full"
+                  className="mt-auto w-full"
                   variant="soft"
                   onClick={() => plan({ ...DEFAULT_REQ(), startDate: req.startDate, ...r.request, touched: ["days", "travelers"] } as PlanRequest)}
                 >
@@ -405,25 +405,35 @@ function TripCard({ trip, currency, onDelete }: { trip: Trip; currency: Paramete
   const total = Object.values(trip.planned).reduce((a, b) => a + b, 0);
   const start = trip.days[0]?.date ?? trip.startDate;
   const end = trip.days[trip.days.length - 1]?.date ?? trip.startDate;
+  const stops = trip.stops.map((s) => PLACE_BY_ID[s.placeId]?.name).filter(Boolean);
   return (
-    <Card className="group relative overflow-hidden">
-      <Link href={`/planner/${trip.id}`} className="block">
-        <div className="relative h-36 overflow-hidden">
+    <Card className="group relative flex h-full min-w-0 flex-col overflow-hidden transition-shadow hover:shadow-lift">
+      <Link href={`/planner/${trip.id}`} className="flex h-full flex-col">
+        <div className="relative h-36 shrink-0 overflow-hidden bg-sand-100">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={trip.cover} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-          <div className="absolute inset-0 bg-gradient-to-t from-night/70 to-transparent" />
-          <p className="absolute bottom-3 left-4 right-4 font-display text-lg font-bold text-white">{trip.title}</p>
+          <div className="absolute inset-0 bg-gradient-to-t from-night/50 to-transparent" />
+          <Badge tone="ink" className="absolute bottom-3 left-3">
+            {trip.days.length} DAYS · {trip.stops.length} STOPS
+          </Badge>
         </div>
-        <div className="flex items-center justify-between p-4 text-sm">
-          <span className="text-ink-soft">
-            {fmtDate(start, { day: "numeric", month: "short" })} – {fmtDate(end, { day: "numeric", month: "short" })}
-          </span>
-          <span className="font-display font-semibold">{money(total, currency)}</span>
+        <div className="flex flex-1 flex-col p-4">
+          <h3 className="line-clamp-2 font-display text-base font-bold leading-snug">{trip.title}</h3>
+          <p className="mt-1 line-clamp-1 text-sm text-ink-muted">{stops.join(" → ")}</p>
+          <div className="mt-auto flex items-center justify-between gap-2 border-t border-ink/5 pt-3 text-sm">
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-ink-soft">
+              <CalendarDays className="h-4 w-4 shrink-0" />
+              <span className="truncate">
+                {fmtDate(start, { day: "numeric", month: "short" })} – {fmtDate(end, { day: "numeric", month: "short" })}
+              </span>
+            </span>
+            <span className="shrink-0 font-display font-semibold">{money(total, currency)}</span>
+          </div>
         </div>
       </Link>
       <button
         onClick={onDelete}
-        className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-ink-soft opacity-0 transition-opacity hover:text-maasai-500 group-hover:opacity-100"
+        className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-ink-soft shadow transition-opacity hover:text-maasai-500 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
         aria-label="Delete trip"
       >
         <Trash2 className="h-4 w-4" />

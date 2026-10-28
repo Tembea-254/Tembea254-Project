@@ -21,6 +21,7 @@ import {
   Printer,
   Route,
   Share2,
+  Ticket,
   Sparkles,
   Trash2,
   Users,
@@ -31,6 +32,7 @@ import { PLACE_BY_ID } from "@/lib/data/places";
 import { useMounted, useProfile, useTrips } from "@/lib/hooks/store";
 import type { Trip } from "@/lib/planner/types";
 import { cn, fmtDate, money } from "@/lib/utils";
+import { WhatsAppIcon } from "../brand/social-icons";
 import { Button, buttonVariants } from "../ui/button";
 import { Badge, Card, Textarea } from "../ui/primitives";
 import { BudgetTab } from "./budget-tab";
@@ -39,16 +41,18 @@ import { downloadICS, downloadJSON, tripAsText } from "./export";
 import { buildItineraryPDF, pdfFileName, whatsappText } from "./pdf";
 import { PackingTab } from "./packing-tab";
 import { RouteTab } from "./route-tab";
+import { ToursExplorer } from "./tours-explorer";
 
 const RouteMap = dynamic(() => import("./route-map"), {
   ssr: false,
   loading: () => <div className="skeleton h-full w-full" />,
 });
 
-type TabId = "route" | "days" | "budget" | "packing" | "notes";
+type TabId = "route" | "days" | "explore" | "budget" | "packing" | "notes";
 const TABS: { id: TabId; label: string; icon: typeof Route }[] = [
   { id: "route", label: "Route", icon: Route },
   { id: "days", label: "Days", icon: CalendarDays },
+  { id: "explore", label: "Things to do", icon: Ticket },
   { id: "budget", label: "Budget", icon: Wallet },
   { id: "packing", label: "Packing", icon: Backpack },
   { id: "notes", label: "Notes", icon: NotebookPen },
@@ -60,7 +64,18 @@ export function TripView({ id }: { id: string }) {
   const { trips, saveTrip, deleteTrip } = useTrips();
   const [profile] = useProfile();
   const trip = trips.find((t) => t.id === id);
-  const [tab, setTab] = useState<TabId>("days");
+  const [tab, setTabState] = useState<TabId>("days");
+  const showMap = tab === "route" || tab === "days";
+  const tabsRef = useRef<HTMLDivElement>(null);
+  /** switch tab and bring the top of the new tab into view (only if we've scrolled past it) */
+  const setTab = (t: TabId) => {
+    setTabState(t);
+    const el = tabsRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - (window.innerWidth < 1024 ? 57 : 0);
+    if (window.scrollY > top + 4) window.scrollTo({ top, behavior: "smooth" });
+  };
+  const [tourPlace, setTourPlace] = useState<string | undefined>();
   const [activePlace, setActivePlace] = useState<string | undefined>();
   const [toast, setToast] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -161,8 +176,8 @@ export function TripView({ id }: { id: string }) {
               <ArrowLeft className="h-4 w-4" /> All trips
             </Link>
             <div className="flex items-center gap-2">
-              <Button size="sm" className="bg-[#25D366] text-white shadow-none hover:bg-[#1ebe5a]" onClick={shareWhatsApp} disabled={busy}>
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />} <span className="hidden sm:inline">WhatsApp</span>
+              <Button size="icon" aria-label="Share on WhatsApp" title="Share on WhatsApp" className="bg-[#25D366] text-white shadow-none hover:bg-[#1ebe5a]" onClick={shareWhatsApp} disabled={busy}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <WhatsAppIcon className="h-5 w-5" />}
               </Button>
               <Button variant="glass" size="sm" onClick={share} className="hidden sm:inline-flex">
                 <Share2 className="h-4 w-4" /> Share
@@ -182,7 +197,7 @@ export function TripView({ id }: { id: string }) {
                     >
                       {[
                         { icon: FileDown, label: "Download PDF (with photos)", run: downloadPDF },
-                        { icon: MessageCircle, label: "Send PDF on WhatsApp", run: shareWhatsApp },
+                        { icon: WhatsAppIcon, label: "Send PDF on WhatsApp", run: shareWhatsApp },
                         { icon: Printer, label: "Print this page", run: () => window.print() },
                         { icon: CalendarDays, label: "Add to calendar (.ics)", run: () => downloadICS(trip) },
                         { icon: Copy, label: "Copy as text", run: async () => { await navigator.clipboard.writeText(tripAsText(trip)); setToast("Copied to clipboard"); } },
@@ -219,7 +234,7 @@ export function TripView({ id }: { id: string }) {
             </div>
           </div>
 
-          <div className="mt-10 max-w-3xl">
+          <div className="mt-6 max-w-3xl sm:mt-10">
             <div className="flex flex-wrap gap-2">
               <Badge tone="glass">
                 <MapPin className="h-3 w-3" /> Kenya
@@ -244,12 +259,12 @@ export function TripView({ id }: { id: string }) {
               }}
               onChange={(e) => update({ title: e.target.value.replace(/\n/g, " ") })}
               aria-label="Trip title"
-              className="mt-3 w-full resize-none overflow-hidden bg-transparent font-display text-3xl font-bold leading-tight tracking-tight text-white outline-none placeholder:text-white/50 focus:underline focus:decoration-savanna-400 focus:decoration-2 focus:underline-offset-8 sm:text-[2.75rem]"
+              className="mt-3 w-full resize-none overflow-hidden bg-transparent font-display text-2xl font-bold leading-tight tracking-tight text-white outline-none placeholder:text-white/50 focus:underline focus:decoration-savanna-400 focus:decoration-2 focus:underline-offset-8 sm:text-[2.75rem]"
             />
             <p className="mt-2 text-white/75">{trip.stops.map((s) => PLACE_BY_ID[s.placeId].name).join(" · ")}</p>
           </div>
 
-          <dl className="mt-6 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
+          <dl className="mt-5 grid max-w-3xl grid-cols-2 gap-2 sm:mt-6 sm:grid-cols-4 sm:gap-3">
             <Stat icon={CalendarDays} label="Dates" value={`${fmtDate(startDate, { day: "numeric", month: "short" })} – ${fmtDate(endDate, { day: "numeric", month: "short" })}`} />
             <Stat icon={MapIcon} label="Stops" value={`${trip.stops.length} · ${nights} nights`} />
             <Stat icon={Users} label="Travellers" value={`${trip.travelers} · ${trip.group}`} />
@@ -259,7 +274,7 @@ export function TripView({ id }: { id: string }) {
       </section>
 
       {/* Tabs */}
-      <div className="no-print sticky top-[57px] z-20 border-b border-ink/[0.06] bg-white/90 backdrop-blur-xl lg:top-0">
+      <div ref={tabsRef} className="no-print sticky top-[57px] z-20 border-b border-ink/[0.06] bg-white/90 backdrop-blur-xl lg:top-0">
         <div className="container-page scrollbar-none flex gap-1 overflow-x-auto py-2">
           {TABS.map((t) => (
             <button
@@ -275,30 +290,44 @@ export function TripView({ id }: { id: string }) {
               <span className="relative">{t.label}</span>
             </button>
           ))}
-          <button onClick={() => setMapOpenMobile((o) => !o)} className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 font-display text-sm font-semibold text-ink-muted lg:hidden">
+          {showMap && <button onClick={() => setMapOpenMobile((o) => !o)} className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 font-display text-sm font-semibold text-ink-muted lg:hidden">
             <MapIcon className="h-4 w-4" /> {mapOpenMobile ? "Hide map" : "Map"}
-          </button>
+          </button>}
         </div>
       </div>
 
-      <div className="container-page grid gap-6 pt-6 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_480px]">
+      <div className={cn("container-page grid gap-6 pt-6", showMap && "lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_460px]")}>
         <div className="min-w-0">
-          {mapOpenMobile && (
+          {showMap && mapOpenMobile && (
             <div className="mb-6 h-72 overflow-hidden rounded-3xl shadow-card lg:hidden">
-              <RouteMap stops={trip.stops} activePlaceId={activePlace} />
+              <RouteMap stops={trip.stops} days={trip.days} travelers={trip.travelers} activePlaceId={activePlace} />
             </div>
           )}
           {tab === "route" && <RouteTab trip={trip} onChange={(t) => { saveTrip(t); setToast("Route updated — days re-planned to match"); }} onFocusPlace={setActivePlace} currency={profile.currency} />}
-          {tab === "days" && <DaysTab trip={trip} onChange={saveTrip} onFocusPlace={setActivePlace} currency={profile.currency} />}
+          {tab === "days" && (
+            <DaysTab
+              trip={trip}
+              onChange={saveTrip}
+              onFocusPlace={setActivePlace}
+              currency={profile.currency}
+              onBrowseTours={(placeId) => {
+                setTourPlace(placeId);
+                setTab("explore");
+              }}
+            />
+          )}
+          {tab === "explore" && <ToursExplorer trip={trip} onChange={saveTrip} currency={profile.currency} initialPlace={tourPlace} />}
           {tab === "budget" && <BudgetTab trip={trip} onChange={saveTrip} currency={profile.currency} />}
           {tab === "packing" && <PackingTab trip={trip} onChange={saveTrip} />}
           {tab === "notes" && <NotesTab trip={trip} onChange={saveTrip} />}
         </div>
+        {showMap && (
         <aside className="no-print hidden lg:block">
           <div className="sticky top-20 h-[calc(100dvh-7rem)] overflow-hidden rounded-3xl shadow-card">
-            <RouteMap stops={trip.stops} activePlaceId={activePlace} />
+            <RouteMap stops={trip.stops} days={trip.days} travelers={trip.travelers} activePlaceId={activePlace} />
           </div>
         </aside>
+        )}
       </div>
 
       <AnimatePresence>
@@ -321,7 +350,7 @@ export function TripView({ id }: { id: string }) {
 
 function Stat({ icon: Icon, label, value }: { icon: typeof Route; label: string; value: string }) {
   return (
-    <div className="glass rounded-2xl px-4 py-3">
+    <div className="glass rounded-2xl px-3 py-2 sm:px-4 sm:py-3">
       <dt className="flex items-center gap-1.5 text-xs text-white/60">
         <Icon className="h-3.5 w-3.5" /> {label}
       </dt>

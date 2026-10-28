@@ -8,6 +8,7 @@ import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { PWARegister } from "@/components/shell/pwa-register";
+import { FloatingDock } from "@/components/a11y/floating-dock";
 
 export const metadata: Metadata = {
   title: { default: "Tembea254 — Discover Kenya", template: "%s · Tembea254" },
@@ -28,7 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <FloatingDock />
+        </AuthProvider>
         <PWARegister />
       </body>
     </html>

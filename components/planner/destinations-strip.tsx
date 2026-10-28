@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Images, MoonStar, Orbit } from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft, ChevronRight, Images, MoonStar, Orbit } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { placeMedia } from "@/lib/data/place-media";
 import { PLACE_BY_ID } from "@/lib/data/places";
 import type { Trip } from "@/lib/planner/types";
@@ -19,6 +19,15 @@ export function DestinationsStrip({ trip, onFocus }: { trip: Trip; onFocus?: (pl
     return { s, i, start, end: addDays(trip.startDate, offset) };
   });
   const g = gallery ? PLACE_BY_ID[gallery] : null;
+  const rail = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState({ start: true, end: false });
+  const sync = () => {
+    const el = rail.current;
+    if (!el) return;
+    setEdge({ start: el.scrollLeft < 8, end: el.scrollLeft + el.clientWidth > el.scrollWidth - 8 });
+  };
+  useEffect(sync, [trip.stops.length]);
+  const nudge = (dir: 1 | -1) => rail.current?.scrollBy({ left: dir * (rail.current.clientWidth * 0.8), behavior: "smooth" });
   const gm = gallery ? placeMedia(gallery) : null;
 
   return (
@@ -30,14 +39,24 @@ export function DestinationsStrip({ trip, onFocus }: { trip: Trip; onFocus?: (pl
             {trip.stops.length} destinations · {trip.days.length} days
           </h2>
         </div>
+        {!(edge.start && edge.end) && (
+          <div className="flex gap-2">
+            <button onClick={() => nudge(-1)} disabled={edge.start} className="grid h-10 w-10 place-items-center rounded-full border border-ink/10 bg-white shadow-sm disabled:opacity-30" aria-label="Previous destinations">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button onClick={() => nudge(1)} disabled={edge.end} className="grid h-10 w-10 place-items-center rounded-full border border-ink/10 bg-white shadow-sm disabled:opacity-30" aria-label="More destinations">
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        )}
       </div>
-      <div className="scrollbar-none -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+      <div ref={rail} onScroll={sync} className="scrollbar-none -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto scroll-smooth px-4 pb-2 sm:mx-0 sm:scroll-px-0 sm:px-0">
         {cards.map(({ s, i, start, end }) => {
           const p = PLACE_BY_ID[s.placeId];
           const m = placeMedia(s.placeId);
           const [a, b, c] = [m.photos[0], m.photos[1] ?? m.photos[0], m.photos[2] ?? m.photos[0]];
           return (
-            <article key={s.id} onMouseEnter={() => onFocus?.(s.placeId)} className="w-[280px] shrink-0 snap-start overflow-hidden rounded-3xl bg-white shadow-card sm:w-[300px]">
+            <article key={s.id} onMouseEnter={() => onFocus?.(s.placeId)} className="w-[82%] max-w-[300px] shrink-0 snap-start overflow-hidden rounded-3xl bg-white shadow-card sm:w-[290px]">
               <button onClick={() => setGallery(s.placeId)} className="group relative grid h-44 w-full grid-cols-3 grid-rows-2 gap-1 overflow-hidden" aria-label={`View photos of ${p.name}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={unsplash(a, 500, 360)} alt={p.name} className="col-span-2 row-span-2 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />

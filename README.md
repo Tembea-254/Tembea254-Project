@@ -42,6 +42,21 @@ Drop equirectangular MP4s (Insta360 / Osmo 360 exports) or 360° photos into `pu
 | Safety & Alerts | `/safety` | Placeholder with live emergency numbers |
 | Profile | `/profile` | Name, currency, language, Premium demo toggle, export or delete data |
 
+## Community, marketplace and payments
+
+- **Community** (`/community`): signed-in travellers post journey updates, tips and questions with a photo and a tagged place, like and comment, and cross-share to WhatsApp, X and Facebook (share links) or TikTok and Instagram (phone share sheet, or the photo is saved and the caption copied, since those apps have no web share link). Posts live in `.data/community.json`; the three starter posts are labelled "Team".
+- **Marketplace** (`/marketplace`): hire people ahead of your trip — drivers & vehicles, photographers, local artists, and tour & local guides — grouped by area (Maasai Mara, Diani & South Coast, Tsavo, Nairobi). Every profile today is a **Demo** placeholder (`lib/data/market.ts`) until real providers are verified. Hire requests go to `.data/hires.json`; "Become a provider" applications to `.data/vendor-applications.json`.
+- **M-Pesa deposits**: add the `MPESA_*` keys from `.env.example` to send a real Lipa na M-Pesa STK push (Daraja) for the 30% hire deposit. Without them it runs in demo mode and no money moves. Prices are recalculated on the server; Safaricom's callback (`/api/mpesa/callback`) marks deposits paid.
+- **VR modes**: every scene is tagged by how the camera really moves — Fly, Walk, Drive, or Look Around (camera standing still). See the comment above `MODES` in `lib/data/vr.ts`.
+- **Voice navigation**: open the accessibility button (or press Alt + V), tap "Start voice navigation", then just talk. Commands are parsed in `components/a11y/voice-commands.ts`.
+- **Reviews**: "What clients say" shows approved reviews. New reviews are saved as pending in `.data/reviews.json`; set `"approved": true` to publish. Sample reviews only show in development.
+
+### Before going live
+
+- Replace the placeholder social handles and email in `lib/site.ts`.
+- Swap the `.data` JSON files for a real database (only `lib/json-store.ts` needs changing).
+- Hotel stars are property class, not guest scores; hotel, tour and transport prices are indicative.
+
 ## Architecture
 
 ```

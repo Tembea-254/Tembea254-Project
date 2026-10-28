@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, LogOut, Sparkles } from "lucide-react";
+import { BookOpen, Crown, LogOut, MoreHorizontal, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -128,14 +129,42 @@ function MobileTopBar() {
           tembea<span className="text-savanna-500">254</span>
         </span>
       </Link>
-      <MobileUser />
+      <div className="flex items-center gap-2">
+        <MobileMore />
+        <MobileUser />
+      </div>
     </header>
   );
 }
 
+function MobileMore() {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  useEffect(() => setOpen(false), [pathname]);
+  const more = NAV.filter((n) => ["/translator", "/safety", "/profile"].includes(n.href));
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen((o) => !o)} className="grid h-9 w-9 place-items-center rounded-full border border-ink/10" aria-label="More pages" aria-expanded={open}>
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-11 w-52 rounded-2xl bg-white p-1.5 shadow-lift ring-1 ring-ink/10">
+          {more.map((n) => (
+            <Link key={n.href} href={n.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-semibold hover:bg-sand-50">
+              <n.icon className="h-4 w-4 text-ink-muted" /> {n.label}
+            </Link>
+          ))}
+          <Link href="/blog" className="flex items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-semibold hover:bg-sand-50">
+            <BookOpen className="h-4 w-4 text-ink-muted" /> Blog
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MobileNav({ pathname }: { pathname: string }) {
-  const items = NAV.filter((n) => !n.soon && n.href !== "/profile");
-  items.push(NAV.find((n) => n.href === "/safety")!);
+  const items = NAV.filter((n) => ["/dashboard", "/vr", "/planner", "/community", "/marketplace"].includes(n.href));
   return (
     <nav className="fixed inset-x-3 bottom-3 z-40 rounded-3xl border border-ink/[0.06] bg-white/95 p-1.5 shadow-lift backdrop-blur-xl lg:hidden">
       <ul className="grid grid-cols-5">

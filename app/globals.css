@@ -99,3 +99,108 @@
     max-width: none !important;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Smooth, accessible motion                                           */
+/* ------------------------------------------------------------------ */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Accessibility modes (toggled on <html> by the helper)               */
+/* ------------------------------------------------------------------ */
+html.a11y-contrast body {
+  background: #fff !important;
+  color: #000 !important;
+}
+html.a11y-contrast .text-ink-muted,
+html.a11y-contrast .text-ink-soft,
+html.a11y-contrast [class*="text-ink/"] {
+  color: #000 !important;
+}
+html.a11y-contrast [class*="text-white/"] {
+  color: #fff !important;
+}
+html.a11y-contrast [class*="border-ink/"] {
+  border-color: #0e2e24 !important;
+}
+html.a11y-contrast .bg-sand-50,
+html.a11y-contrast .bg-sand-100,
+html.a11y-contrast .bg-\[\#F3F8F5\] {
+  background-color: #fff !important;
+}
+html.a11y-contrast img {
+  filter: contrast(1.1);
+}
+html.a11y-contrast :focus-visible {
+  outline: 3px solid #f2b13a !important;
+  outline-offset: 2px;
+}
+html.a11y-readable body,
+html.a11y-readable h1,
+html.a11y-readable h2,
+html.a11y-readable h3,
+html.a11y-readable h4 {
+  font-family: Verdana, Tahoma, "Segoe UI", sans-serif !important;
+  letter-spacing: 0.04em !important;
+  word-spacing: 0.12em !important;
+}
+html.a11y-spacing p,
+html.a11y-spacing li,
+html.a11y-spacing span {
+  line-height: 1.9 !important;
+}
+html.a11y-links a,
+html.a11y-links button {
+  outline: 2px dashed #c8102e !important;
+  outline-offset: 2px;
+}
+html.a11y-links a {
+  text-decoration: underline !important;
+}
+html.a11y-motion *,
+html.a11y-motion *::before,
+html.a11y-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+html.a11y-cursor,
+html.a11y-cursor * {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24'><path d='M4 2l16 9-7 2-3 7z' fill='%230E2E24' stroke='white' stroke-width='1.5'/></svg>") 4 2, auto !important;
+}
+
+/* Ken Burns pan for rotating hero imagery */
+@keyframes kenburns {
+  0% {
+    transform: scale(1.08) translate3d(0, 0, 0);
+  }
+  100% {
+    transform: scale(1.22) translate3d(-3%, -2%, 0);
+  }
+}
+.animate-kenburns {
+  animation: kenburns 9s ease-out forwards;
+}
+
+/* floating buttons step aside while a dialog is open */
+body:has([aria-modal="true"]) .tm-fab {
+  opacity: 0 !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+.tm-fab {
+  transition:
+    opacity 0.2s,
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+html.tm-dock-hidden .tm-fab {
+  transform: translateX(160%) !important;
+}

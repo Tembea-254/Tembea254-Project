@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { VR_DESTINATIONS, getVR } from "@/lib/data/vr";
 import { VRPlayer } from "@/components/vr/vr-player";
 
@@ -15,5 +16,9 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
 export default function VRDestinationPage({ params }: { params: { slug: string } }) {
   const d = getVR(params.slug);
   if (!d) notFound();
-  return <VRPlayer slug={d.slug} />;
+  return (
+    <Suspense>
+      <VRPlayer slug={d.slug} />
+    </Suspense>
+  );
 }

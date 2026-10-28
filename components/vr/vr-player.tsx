@@ -25,7 +25,11 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getVR, type TimeOfDay } from "@/lib/data/vr";
+import { MODES, MODE_BY_ID, getVR, modesFor, type TimeOfDay, type TravelMode } from "@/lib/data/vr";
+import { MODE_ICON } from "./mode-icons";
+import { useSearchParams } from "next/navigation";
+import { Car, Plane } from "lucide-react";
+
 import { useActivity, useProfile, useStats } from "@/lib/hooks/store";
 import { cn, unsplash } from "@/lib/utils";
 import { Button, buttonVariants } from "../ui/button";
@@ -55,11 +59,22 @@ export function VRPlayer({ slug }: { slug: string }) {
   const [hint, setHint] = useState(true);
 
   const hasNight = d.scenes.some((s) => s.time === "night");
+  const available = useMemo(() => modesFor(d), [d]);
+  const params = useSearchParams();
+  const [mode, setMode] = useState<TravelMode | "all">(() => {
+    const m = params.get("mode") as TravelMode | null;
+    return m && available.has(m) ? m : "all";
+  });
   const path = useMemo(() => {
-    const m = d.scenes.filter((s) => s.time === time);
-    return m.length ? m : d.scenes;
-  }, [d.scenes, time]);
-  const [sceneId, setSceneId] = useState(() => (d.scenes.find((s) => !s.premium) ?? d.scenes[0]).id);
+    const byMode = mode === "all" ? d.scenes : d.scenes.filter((s) => s.mode === mode);
+    const m = byMode.filter((s) => s.time === time);
+    return m.length ? m : byMode.length ? byMode : d.scenes;
+  }, [d.scenes, time, mode]);
+  const [sceneId, setSceneId] = useState(() => {
+    const m = params.get("mode");
+    const pool = m ? d.scenes.filter((s) => s.mode === m) : d.scenes;
+    return (pool.find((s) => !s.premium) ?? pool[0] ?? d.scenes[0]).id;
+  });
   const scene = d.scenes.find((s) => s.id === sceneId) ?? d.scenes[0];
   const idx = Math.max(0, path.findIndex((s) => s.id === scene.id));
   const simulatedNight = time === "night" && scene.time === "day";
@@ -106,9 +121,18 @@ export function VRPlayer({ slug }: { slug: string }) {
     [canWatch],
   );
 
+  const changeMode = (m: TravelMode | "all") => {
+    setMode(m);
+    const pool = m === "all" ? d.scenes : d.scenes.filter((s) => s.mode === m);
+    const pick = pool.find((s) => s.time === time && (!s.premium || profile.premium)) ?? pool.find((s) => !s.premium || profile.premium) ?? pool[0];
+    if (pick) setSceneId(pick.id);
+  };
+
   const changeTime = (t: TimeOfDay) => {
     setTime(t);
-    const match = d.scenes.find((s) => s.time === t && (!s.premium || profile.premium)) ?? d.scenes.find((s) => s.time === t);
+    // stay inside the chosen travel mode — never jump from Walk to a Drive scene just because it's night
+    const pool = mode === "all" ? d.scenes : d.scenes.filter((s) => s.mode === mode);
+    const match = pool.find((s) => s.time === t && (!s.premium || profile.premium)) ?? pool.find((s) => s.time === t);
     if (match) setSceneId(match.id);
   };
 
@@ -168,7 +192,7 @@ export function VRPlayer({ slug }: { slug: string }) {
       </AnimatePresence>
 
       {/* top bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 bg-gradient-to-b from-night/80 to-transparent p-4 sm:p-6">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 bg-gradient-to-b from-night/55 to-transparent p-4 sm:p-6">
         <div className="pointer-events-auto flex min-w-0 items-center gap-3">
           <Link href="/vr" className={buttonVariants({ variant: "glass", size: "icon" })} aria-label="Back to experiences">
             <ArrowLeft className="h-5 w-5" />
@@ -206,6 +230,37 @@ export function VRPlayer({ slug }: { slug: string }) {
         </div>
       </div>
 
+      {/* Go Fly / Go Walk / Go Drive */}
+      <div className={cn("absolute left-1/2 top-20 z-10 -translate-x-1/2 sm:top-6", panelOpen && "lg:left-[calc(50%-190px)]")}>
+        <div className="glass flex items-center gap-1 rounded-full p-1" role="radiogroup" aria-label="How do you want to explore?">
+          {MODES.map((m) => {
+            const Icon = MODE_ICON[m.id];
+            const on = mode === m.id;
+            const has = available.has(m.id);
+            return (
+              <button
+                key={m.id}
+                role="radio"
+                aria-checked={on}
+                disabled={!has}
+                onClick={() => changeMode(on ? "all" : m.id)}
+                title={has ? m.blurb : `No ${m.label.toLowerCase()} footage for ${d.name} yet`}
+                className={cn(
+                  "relative inline-flex items-center gap-1 rounded-full px-2.5 py-2 font-display text-xs font-semibold transition-colors sm:px-4 sm:text-sm",
+                  on ? "text-ink" : "text-white hover:bg-white/10",
+                  !has && "cursor-not-allowed opacity-35 hover:bg-transparent",
+                )}
+              >
+                {on && <motion.span layoutId="vr-mode" className="absolute inset-0 rounded-full bg-white" transition={{ type: "spring", stiffness: 400, damping: 32 }} />}
+                <Icon className="relative h-4 w-4" />
+                <span className="relative sm:hidden">{m.label}</span>
+                <span className="relative hidden sm:inline">{m.verb}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* look-around hint */}
       <AnimatePresence>
         {hint && !locked && (
@@ -226,12 +281,20 @@ export function VRPlayer({ slug }: { slug: string }) {
       )}
 
       {/* bottom: spot + path */}
-      <div className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-night/90 via-night/40 to-transparent p-4 pt-16 sm:p-6 sm:pt-20", panelOpen && "lg:pr-[400px]")}>
+      <div className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-night/75 via-night/15 to-transparent p-4 pt-16 sm:p-6 sm:pt-20", panelOpen && "lg:pr-[400px]")}>
         <div className="pointer-events-auto">
           <div className="flex flex-wrap items-center gap-2 text-xs text-white/75">
             <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5">
-              <Footprints className="h-3 w-3" /> Spot {idx + 1} of {path.length}
+              Spot {idx + 1} of {path.length}
             </span>
+            {(() => {
+              const SI = MODE_ICON[scene.mode];
+              return (
+                <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 font-semibold text-ink">
+                  <SI className="h-3 w-3" /> {MODE_BY_ID[scene.mode].doing}
+                </span>
+              );
+            })()}
             <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5">
               {scene.time === "day" && !simulatedNight ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
               {simulatedNight ? "Dusk mode" : scene.time === "day" ? "Day" : "Night"}
@@ -329,7 +392,7 @@ export function VRPlayer({ slug }: { slug: string }) {
                             <span className="block truncate text-sm font-medium">{s.title}</span>
                             <span className="mt-0.5 flex items-center gap-2 text-xs text-white/55">
                               {s.time === "day" ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
-                              {s.minutes} min · 360°
+                              {s.minutes} min · {MODE_BY_ID[s.mode].doing}
                               {lockedRow && <span className="text-ochre-400">{TEASER_SECONDS}s preview</span>}
                             </span>
                           </span>

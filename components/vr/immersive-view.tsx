@@ -17,6 +17,8 @@ export interface ImmersiveProps {
   onEnded: () => void;
   onProgress?: (p: { current: number; duration: number; watched: number }) => void;
   className?: string;
+  /** background use: no "Entering the scene" label */
+  quiet?: boolean;
 }
 
 /**
@@ -31,12 +33,36 @@ export function ImmersiveView(props: ImmersiveProps) {
 
 /* ------------------------------------------------------------------ */
 
-function YouTubeSphere({ scene, poster, muted, autoPan, gyro, halted, onEnded, onProgress, className }: ImmersiveProps) {
+function YouTubeSphere({ quiet, scene, poster, muted, autoPan, gyro, halted, onEnded, onProgress, className }: ImmersiveProps) {
   const src = scene.source as Extract<VRScene["source"], { kind: "youtube" }>;
   const hostRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+
+  // size the player: cover the screen at 16:9, oversize for chrome, supersample for sharpness
+  useEffect(() => {
+    const fit = () => {
+      const box = frameRef.current;
+      const host = hostRef.current;
+      if (!box || !host) return;
+      const w = box.clientWidth;
+      const h = box.clientHeight;
+      const coverW = Math.max(w, (h * 16) / 9) * 1.18;
+      const coverH = (coverW * 9) / 16;
+      const coarse = matchMedia("(pointer: coarse)").matches;
+      // cap the internal size so phones don't decode more than ~4K
+      const k = Math.max(1, Math.min(coarse ? 1.5 : 2, 3840 / coverW));
+      host.style.width = `${coverW * k}px`;
+      host.style.height = `${coverH * k}px`;
+      host.style.transform = `translate(-50%, -50%) scale(${1 / k})`;
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    if (frameRef.current) ro.observe(frameRef.current);
+    return () => ro.disconnect();
+  }, []);
   const [revealed, setRevealed] = useState(false);
   const endedRef = useRef(onEnded);
   endedRef.current = onEnded;
@@ -63,10 +89,14 @@ function YouTubeSphere({ scene, poster, muted, autoPan, gyro, halted, onEnded, o
     loadYouTubeAPI().then(() => {
       if (dead || !hostRef.current || !window.YT) return;
       const el = document.createElement("div");
+      el.style.width = "100%";
+      el.style.height = "100%";
       hostRef.current.appendChild(el);
       player.current = new window.YT.Player(el, {
         host: "https://www.youtube-nocookie.com",
         videoId: src.id,
+        width: "100%",
+        height: "100%",
         playerVars: { autoplay: 1, mute: 1, controls: 0, playsinline: 1, rel: 0, iv_load_policy: 3, disablekb: 1, fs: 0, modestbranding: 1, cc_load_policy: 0, start: src.start ?? 0 },
         events: {
           onReady: () => {
@@ -135,20 +165,23 @@ function YouTubeSphere({ scene, poster, muted, autoPan, gyro, halted, onEnded, o
 
   return (
     <div className={cn("absolute inset-0 overflow-hidden bg-night", className)}>
-      {/* player is oversized so no player chrome reaches the visible edges */}
-      <div className="pointer-events-none absolute inset-0 scale-[1.18]">
-        <div ref={hostRef} className="video-cover" />
+      {/* Player is rendered 1.5–2x larger than the screen and scaled down. YouTube picks its stream
+          quality from the player's size, so this pulls the 4K/8K renditions and supersamples the
+          360° projection — much sharper than a screen-sized player. It is also oversized (1.18x) so
+          no player chrome reaches the visible edges, and gently graded so footage isn't flat. */}
+      <div ref={frameRef} className="pointer-events-none absolute inset-0 [filter:contrast(1.06)_saturate(1.18)_brightness(1.04)]">
+        <div ref={hostRef} className="absolute left-1/2 top-1/2" style={{ transformOrigin: "center" }} />
       </div>
       {/* interaction layer — drag, wheel, pinch, keys all land here */}
       <div ref={layerRef} className="absolute inset-0 z-[1]" aria-label="Drag or scroll to look around" />
-      <Curtain poster={poster} visible={!revealed} />
+      <Curtain poster={poster} visible={!revealed} quiet={quiet} />
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
 
-function WebGLSphere({ scene, poster, muted, autoPan, gyro, halted, onEnded, onProgress, className }: ImmersiveProps) {
+function WebGLSphere({ quiet, scene, poster, muted, autoPan, gyro, halted, onEnded, onProgress, className }: ImmersiveProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const camRef = useRef<{ setView: (v: View) => void } | null>(null);
@@ -248,18 +281,18 @@ function WebGLSphere({ scene, poster, muted, autoPan, gyro, halted, onEnded, onP
   return (
     <div className={cn("absolute inset-0 overflow-hidden bg-night", className)}>
       <div ref={mountRef} className="absolute inset-0" aria-label="Drag or scroll to look around" />
-      <Curtain poster={poster} visible={!revealed} />
+      <Curtain poster={poster} visible={!revealed} quiet={quiet} />
     </div>
   );
 }
 
-function Curtain({ poster, visible }: { poster: string; visible: boolean }) {
+function Curtain({ poster, visible, quiet }: { poster: string; visible: boolean; quiet?: boolean }) {
   return (
     <div className={cn("pointer-events-none absolute inset-0 z-[2] transition-opacity duration-1000", visible ? "opacity-100" : "opacity-0")}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={poster} alt="" className="h-full w-full scale-105 object-cover blur-[2px]" />
       <div className="absolute inset-0 bg-night/40" />
-      <div className="absolute inset-0 grid place-items-center">
+      <div className={cn("absolute inset-0 grid place-items-center", quiet && "hidden")}>
         <div className="flex items-center gap-3 rounded-full bg-night/50 px-5 py-2.5 font-display text-sm font-semibold text-white backdrop-blur">
           <span className="h-2 w-2 animate-ping rounded-full bg-savanna-400" /> Entering the scene
         </div>

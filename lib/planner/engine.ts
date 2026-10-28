@@ -8,6 +8,7 @@
 import { FOOD_PER_DAY, PARK_FEES, PLACES, PLACE_BY_ID, type ActivitySeed, type Interest, type Place, type Tier } from "../data/places";
 import { addDays, haversineKm, uid, unsplash } from "../utils";
 import type { Day, ExpenseCategory, Item, Leg, PackItem, PlanRequest, Stop, Trip } from "./types";
+import { transportOptions, type TransportMode } from "./transport";
 
 /* ------------------------------------------------------------------ */
 /* Prompt parsing                                                      */
@@ -49,7 +50,14 @@ export function parsePrompt(text: string) {
         : /(solo|alone|myself)/.test(t)
           ? "solo"
           : undefined;
-  return { places, interests, days, budget, group } as const;
+  // "4 people", "six adults", "family of 5", "for 3 of us", "2 pax"
+  const nums: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
+  const countMatch =
+    t.match(/\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(people|persons|adults|travell?ers|guests|pax|friends|of us)\b/) ||
+    t.match(/\b(?:family|group|party) of (\d{1,2}|two|three|four|five|six|seven|eight|nine|ten)\b/);
+  const travelers = countMatch ? Math.min(20, Math.max(1, nums[countMatch[1]] ?? parseInt(countMatch[1], 10))) : undefined;
+  const groupOut = group ?? (travelers && travelers > 2 ? "friends" : travelers === 1 ? "solo" : undefined);
+  return { places, interests, days, budget, group: groupOut, travelers } as const;
 }
 
 /* ------------------------------------------------------------------ */
@@ -156,27 +164,11 @@ export function allocateNights(ids: string[], totalNights: number, style: PlanRe
 /* Transport legs                                                      */
 /* ------------------------------------------------------------------ */
 
-const FLIGHT_HUBS = new Set(["maasai-mara", "amboseli", "samburu", "diani", "mombasa", "watamu", "lamu"]);
-const COAST = new Set(["mombasa", "diani", "watamu", "lamu", "tsavo-east"]);
 
-export function estimateLeg(fromId: string, toId: string): Leg {
-  const a = PLACE_BY_ID[fromId];
-  const b = PLACE_BY_ID[toId];
-  const km = Math.round(haversineKm(a.coords, b.coords) * 1.3);
-  // Nairobi <-> coast: Madaraka Express (SGR) is the classic choice.
-  if ((fromId === "nairobi" && (toId === "mombasa" || toId === "diani")) || (toId === "nairobi" && (fromId === "mombasa" || fromId === "diani"))) {
-    const extra = fromId === "diani" || toId === "diani" ? 60 : 20;
-    return { from: fromId, to: toId, mode: "train", km, minutes: 300 + extra, cost: 4500, label: "Madaraka Express (SGR)" };
-  }
-  if (toId === "lamu" || fromId === "lamu") {
-    return { from: fromId, to: toId, mode: "flight", km, minutes: 90, cost: 14000, label: "Flight to Manda + boat" };
-  }
-  const crossesCoast = COAST.has(fromId) !== COAST.has(toId);
-  if (km > 420 || (crossesCoast && km > 250 && FLIGHT_HUBS.has(toId))) {
-    return { from: fromId, to: toId, mode: "flight", km, minutes: Math.round(45 + km / 7), cost: Math.round(9000 + km * 12), label: "Domestic flight" };
-  }
-  const roadMinutes = Math.round((km / 55) * 60 + 20);
-  return { from: fromId, to: toId, mode: "road", km, minutes: roadMinutes, cost: Math.round(1200 + km * 18), label: "Private safari van" };
+export function estimateLeg(fromId: string, toId: string, mode?: TransportMode, travelers = 2): Leg {
+  const opts = transportOptions(fromId, toId, travelers);
+  const o = (mode && opts.find((x) => x.mode === mode)) || opts.find((x) => x.recommended) || opts[0];
+  return { from: fromId, to: toId, mode: o.mode, km: o.km, minutes: o.minutes, cost: o.perPerson, label: o.label };
 }
 
 /* ------------------------------------------------------------------ */
@@ -270,7 +262,7 @@ function buildDays(req: PlanRequest, stops: Stop[], legs: Leg[]): Day[] {
   // Departure day
   const last = stops[stops.length - 1];
   const lastPlace = PLACE_BY_ID[last.placeId];
-  const homeLeg = lastPlace.gateway ? undefined : estimateLeg(last.placeId, "nairobi");
+  const homeLeg = lastPlace.gateway ? undefined : estimateLeg(last.placeId, "nairobi", undefined, req.travelers);
   days.push({
     id: uid("d_"),
     date: addDays(req.startDate, dayIndex),
@@ -359,7 +351,7 @@ export function normaliseRequest(req: PlanRequest): PlanRequest & { parsedPlaces
     days: Math.min(21, Math.max(2, pick("days", req.days || undefined, parsed.days, 7))),
     budget: pick("budget", req.budget, parsed.budget, "mid"),
     group,
-    travelers: touched.has("travelers") ? req.travelers : group === "solo" ? 1 : group === "family" && req.travelers < 3 ? 4 : req.travelers,
+    travelers: touched.has("travelers") ? req.travelers : parsed.travelers ?? (group === "solo" ? 1 : group === "family" && req.travelers < 3 ? 4 : req.travelers),
     interests: Array.from(new Set([...(req.interests || []), ...parsed.interests])),
     parsedPlaces: parsed.places,
   };
@@ -384,8 +376,8 @@ export function makeStops(ids: string[], nights: number[], tier: Tier): Stop[] {
   }));
 }
 
-export function legsFor(stops: Stop[]): Leg[] {
-  return stops.slice(1).map((s, i) => estimateLeg(stops[i].placeId, s.placeId));
+export function legsFor(stops: Stop[], travelers = 2): Leg[] {
+  return stops.slice(1).map((s, i) => estimateLeg(stops[i].placeId, s.placeId, s.arriveBy, travelers));
 }
 
 export function generateTrip(input: PlanRequest): Trip {
@@ -394,7 +386,7 @@ export function generateTrip(input: PlanRequest): Trip {
   const ids = orderStops(chooseStops(req, req.parsedPlaces));
   const nights = allocateNights(ids, totalNights, req.style);
   const stops = makeStops(ids, nights, req.budget);
-  const legs = legsFor(stops);
+  const legs = legsFor(stops, req.travelers);
   const days = buildDays(req, stops, legs);
   return finaliseTrip(req, stops, days, "engine");
 }
@@ -443,7 +435,7 @@ export function rebuildFromStops(trip: Trip): Trip {
     interests: trip.interests,
     places: [],
   };
-  const legs = legsFor(trip.stops);
+  const legs = legsFor(trip.stops, trip.travelers);
   const days = buildDays(req, trip.stops, legs);
   const next = { ...trip, days, updatedAt: Date.now() };
   return { ...next, planned: computePlanned(next) };

@@ -41,11 +41,13 @@ export function DaysTab({
   onChange,
   onFocusPlace,
   currency,
+  onBrowseTours,
 }: {
   trip: Trip;
   onChange: (t: Trip) => void;
   onFocusPlace: (id?: string) => void;
   currency: Currency;
+  onBrowseTours?: (placeId: string) => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
 
@@ -94,6 +96,7 @@ export function DaysTab({
             onFocus={() => onFocusPlace(d.placeId)}
             onUpdate={(fn) => updateDay(d.id, fn)}
             onMove={(itemId, toDay) => moveItem(d.id, itemId, toDay)}
+            onBrowseTours={onBrowseTours}
           />
         ))}
       </div>
@@ -113,6 +116,7 @@ function DayCard({
   onFocus,
   onUpdate,
   onMove,
+  onBrowseTours,
 }: {
   day: Day;
   index: number;
@@ -123,6 +127,7 @@ function DayCard({
   onFocus: () => void;
   onUpdate: (fn: (d: Day) => Day) => void;
   onMove: (itemId: string, toDay: string) => void;
+  onBrowseTours?: (placeId: string) => void;
 }) {
   const [items, setItems] = useState(day.items);
   const [adding, setAdding] = useState(false);
@@ -204,6 +209,11 @@ function DayCard({
               <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
                 <Plus className="h-4 w-4" /> Add to day
               </Button>
+              {onBrowseTours && (
+                <Button variant="soft" size="sm" onClick={() => onBrowseTours(day.placeId)}>
+                  <Ticket className="h-4 w-4" /> Browse tours
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={() => onUpdate((d) => ({ ...d, items: [...d.items].sort(byTime) }))}>
                 <ArrowDownUp className="h-4 w-4" /> Sort by time
               </Button>

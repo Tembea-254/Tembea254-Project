@@ -1,4 +1,5 @@
 import type { Interest, Tier } from "../data/places";
+import type { TransportMode } from "./transport";
 
 export type TravelStyle = "relaxed" | "balanced" | "packed";
 export type Group = "solo" | "couple" | "family" | "friends";
@@ -43,7 +44,7 @@ export interface Day {
 export interface Leg {
   from: string;
   to: string;
-  mode: "road" | "flight" | "train";
+  mode: TransportMode;
   minutes: number;
   km: number;
   cost: number; // per person KES
@@ -56,6 +57,10 @@ export interface Stop {
   nights: number;
   stay: string;
   stayPerNight: number;
+  /** id from lib/data/stays when the traveller picked a specific property */
+  stayId?: string;
+  /** how the traveller arrives at this stop from the previous one (default: recommended option) */
+  arriveBy?: TransportMode;
 }
 
 export type ExpenseCategory = "stay" | "transport" | "activities" | "food" | "parks" | "other";

@@ -33,35 +33,29 @@ export function PackingTab({ trip, onChange }: { trip: Trip; onChange: (t: Trip)
             <h2 className="text-lg font-bold">Packing list</h2>
             <p className="text-sm text-ink-muted">Built for your route — safari layers, reef shoes and documents included.</p>
           </div>
-          <div className="text-right">
-            <p className="font-display text-2xl font-bold">
-              {packed}/{trip.packing.length}
-            </p>
-            <p className="text-xs text-ink-muted">packed</p>
-          </div>
         </div>
         <Progress className="mt-4" value={(packed / Math.max(1, trip.packing.length)) * 100} />
-        <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_170px_auto_auto]">
-          <Input value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Add an item, e.g. Kikoy for the beach" aria-label="Packing item" />
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 sm:grid-cols-[1fr_170px_auto_auto]">
+          <Input className="col-span-3 sm:col-span-1" value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Add an item, e.g. Kikoy for the beach" aria-label="Packing item" />
           <Select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
             {categories.map((c) => (
               <option key={c}>{c}</option>
             ))}
           </Select>
-          <Button onClick={add} disabled={!label.trim()}>
-            <Plus className="h-4 w-4" /> Add
+          <Button variant="dark" onClick={add}>
+            <Plus className="h-4 w-4" /> Add item
           </Button>
-          <Button variant="outline" onClick={() => onChange({ ...trip, packing: trip.packing.map((p) => ({ ...p, packed: false })) })} title="Uncheck everything">
+          <Button variant="outline" onClick={() => onChange({ ...trip, packing: trip.packing.map((p) => ({ ...p, packed: false })) })} title="Uncheck everything" aria-label="Uncheck everything" size="icon" className="h-11 w-11">
             <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
       </Card>
 
-      <div className="columns-1 gap-5 md:columns-2">
+      <div className="columns-1 gap-5 [column-width:300px]">
         {groups.map(([cat, items]) => (
           <Card key={cat} className="mb-5 break-inside-avoid p-4">
             <p className="mb-2 font-display text-xs font-semibold uppercase tracking-wider text-savanna-600">
-              {cat} · {items.filter((i) => i.packed).length}/{items.length}
+              {cat}
             </p>
             <ul>
               {items.map((it) => (
@@ -92,7 +86,7 @@ export function PackingTab({ trip, onChange }: { trip: Trip; onChange: (t: Trip)
                   )}
                   <button
                     onClick={() => onChange({ ...trip, packing: trip.packing.filter((p) => p.id !== it.id) })}
-                    className="grid h-7 w-7 place-items-center rounded-full text-ink-muted opacity-0 hover:text-maasai-500 group-hover:opacity-100"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-muted hover:text-maasai-500 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
                     aria-label={`Remove ${it.label}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />

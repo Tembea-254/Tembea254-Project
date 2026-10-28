@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Lock, Moon, Orbit, Play, Sun } from "lucide-react";
-import type { VRDestination } from "@/lib/data/vr";
+import { modesFor, type TravelMode, type VRDestination } from "@/lib/data/vr";
+import { MODE_ICON } from "./mode-icons";
 import { cn, unsplash } from "@/lib/utils";
 import { Badge } from "../ui/primitives";
 
 const TYPE_TONE = { Safari: "ochre", Cultural: "violet", Beach: "green", City: "neutral" } as const;
 
-export function DestinationCard({ d, index = 0, premiumUser }: { d: VRDestination; index?: number; premiumUser: boolean }) {
+export function DestinationCard({ d, index = 0, premiumUser, mode }: { d: VRDestination; index?: number; premiumUser: boolean; mode?: TravelMode | null }) {
+  const modes = modesFor(d);
   const has360 = true;
   const hasNight = d.scenes.some((s) => s.time === "night");
   const freeScenes = d.scenes.filter((s) => !s.premium).length;
@@ -24,7 +26,7 @@ export function DestinationCard({ d, index = 0, premiumUser }: { d: VRDestinatio
       transition={{ delay: index * 0.04, duration: 0.4 }}
       className="group relative overflow-hidden rounded-3xl bg-ink shadow-card"
     >
-      <Link href={`/vr/${d.slug}`} className="block" aria-label={`Enter virtual preview of ${d.name}`}>
+      <Link href={`/vr/${d.slug}${mode ? `?mode=${mode}` : ""}`} className="block" aria-label={`Enter virtual preview of ${d.name}`}>
         <div className="relative aspect-[4/5] sm:aspect-[5/6]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -57,9 +59,21 @@ export function DestinationCard({ d, index = 0, premiumUser }: { d: VRDestinatio
           </div>
 
           <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-            <p className="text-xs font-medium text-white/70">
-              {d.region} · {d.level}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-white/70">
+                {d.region} · {d.level}
+              </p>
+              <span className="flex items-center gap-1" aria-label={`Modes: ${[...modes].join(", ")}`}>
+                {(["fly", "walk", "drive", "view"] as const).map((m) => {
+                  const I = MODE_ICON[m];
+                  return (
+                    <span key={m} className={cn("grid h-6 w-6 place-items-center rounded-full", modes.has(m) ? (mode === m ? "bg-savanna-500" : "bg-white/20") : "bg-white/5 opacity-30")} title={m}>
+                      <I className="h-3.5 w-3.5" />
+                    </span>
+                  );
+                })}
+              </span>
+            </div>
             <h3 className="mt-1 text-2xl font-bold text-white">{d.name}</h3>
             <p className="mt-1 line-clamp-2 text-sm text-white/80">{d.tagline}</p>
             <div className="mt-4 flex items-center justify-between gap-3">

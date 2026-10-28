@@ -5,6 +5,8 @@ import {
   BadgeCheck,
   BedDouble,
   Bus,
+  Car,
+  Compass,
   Camera,
   Hand,
   Heart,
@@ -268,13 +270,14 @@ export function SocialMock() {
 /* ---------------- Marketplace ---------------- */
 export function MarketMock() {
   const items = [
-    { t: "Mara balloon safari", p: "KES 64,000", icon: Ticket, img: IMG.maraBalloon, r: 4.9 },
-    { t: "Ol Tukai Lodge", p: "KES 30,000 / night", icon: BedDouble, img: IMG.amboseliHerd, r: 4.7 },
-    { t: "Swahili cooking class", p: "KES 3,500", icon: UtensilsCrossed, img: IMG.mombasaBeach, r: 4.8 },
+    { t: "Land Cruiser + driver", p: "KES 22,000 / day", icon: Car, img: IMG.maraLion, r: "Maasai Mara" },
+    { t: "Beach photographer", p: "KES 15,000 / session", icon: Camera, img: IMG.dianiSunset, r: "Diani" },
+    { t: "Red elephant guide", p: "KES 9,000 / day", icon: Compass, img: IMG.tsavoElephants, r: "Tsavo" },
   ];
+
   return (
     <div className="flex h-full flex-col bg-sand-50 px-3 pt-9">
-      <p className="font-display text-sm font-bold">Book along your route</p>
+      <p className="font-display text-sm font-bold">Hire local, book ahead</p>
       <div className="mt-2 space-y-2">
         {items.map((it, i) => (
           <motion.div key={it.t} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 + i * 0.15 }} className="flex gap-2.5 rounded-2xl bg-white p-2 shadow-card">
@@ -285,7 +288,7 @@ export function MarketMock() {
                 <it.icon className="h-3 w-3 text-savanna-600" /> {it.t}
               </p>
               <p className="flex items-center gap-0.5 text-[9px] text-ink-muted">
-                <Star className="h-2.5 w-2.5 fill-ochre-400 text-ochre-400" /> {it.r} · Verified local
+                <BadgeCheck className="h-2.5 w-2.5 text-savanna-600" /> {it.r} · Verified
               </p>
               <p className="mt-0.5 text-[11px] font-bold">{it.p}</p>
             </div>
@@ -294,11 +297,11 @@ export function MarketMock() {
       </div>
       <div className="mt-auto mb-5 rounded-2xl bg-ink p-3 text-white">
         <p className="flex items-center gap-1.5 text-[10px] text-white/70">
-          <Wallet className="h-3 w-3" /> Pay with M-Pesa or card
+          <Wallet className="h-3 w-3" /> 30% deposit with M-Pesa
         </p>
         <div className="mt-2 flex items-center justify-between">
-          <span className="font-display text-sm font-bold">KES 97,500</span>
-          <span className="rounded-full bg-savanna-500 px-3 py-1 text-[10px] font-semibold">Checkout</span>
+          <span className="font-display text-sm font-bold">KES 6,600</span>
+          <span className="rounded-full bg-savanna-500 px-3 py-1 text-[10px] font-semibold">Hire</span>
         </div>
       </div>
     </div>

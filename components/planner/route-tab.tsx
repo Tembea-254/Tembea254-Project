@@ -28,7 +28,9 @@ export function RouteTab({
   currency: Currency;
 }) {
   const [order, setOrder] = useState<Stop[]>(trip.stops);
-  useEffect(() => setOrder(trip.stops), [trip.stops]);
+  useEffect(() => {
+    setOrder(trip.stops);
+  }, [trip.stops]);
 
   const commit = (stops: Stop[]) => onChange(rebuildFromStops({ ...trip, stops }));
   const nights = order.reduce((a, s) => a + s.nights, 0);

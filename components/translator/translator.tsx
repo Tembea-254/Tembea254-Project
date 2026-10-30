@@ -53,14 +53,30 @@ function saveHistory(h: HistoryEntry[]) {
   }
 }
 
-export function Translator() {
+/** Swap the built-in phrasebook for the admin-managed one (the translate helpers read PHRASES). */
+function usePhrasebook(phrases?: Phrase[]) {
+  const done = useRef(false);
+  if (!done.current && phrases?.length) {
+    PHRASES.splice(0, PHRASES.length, ...phrases);
+    done.current = true;
+  }
+}
+
+function logTranslation(from: string, to: string, chars: number, engine: string) {
+  fetch("/api/translate/log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from, to, chars, engine }) }).catch(() => {});
+}
+
+export function Translator({ phrases }: { phrases?: Phrase[] }) {
+  usePhrasebook(phrases);
   const [mode, setMode] = useState<"text" | "conversation" | "phrasebook">("text");
   const [from, setFrom] = useState("en");
   const [to, setTo] = useState("sw");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const mounted = useMounted();
 
-  useEffect(() => setHistory(loadHistory()), []);
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
   const pushHistory = useCallback((e: Omit<HistoryEntry, "id" | "at">) => {
     setHistory((h) => {
       if (h[0] && h[0].input === e.input && h[0].to === e.to) return h;
@@ -199,6 +215,7 @@ function useTranslation(from: string, to: string, onDone: (e: Omit<HistoryEntry,
       const id = ++reqId.current;
       setLoading(true);
       const r = await translate(text, from, to);
+      logTranslation(from, to, text.length, r.source);
       if (id !== reqId.current) return null;
       setResult(r);
       setLoading(false);
@@ -362,7 +379,9 @@ function ConversationMode({ from, to, onDone }: { from: string; to: string; onDo
   const end = useRef<HTMLDivElement>(null);
   const supported = useMemo(() => speechRecognitionSupported(), []);
 
-  useEffect(() => end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), [turns, live]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [turns, live]);
 
   const handle = useCallback(
     async (who: "me" | "them", text: string) => {
@@ -370,6 +389,7 @@ function ConversationMode({ from, to, onDone }: { from: string; to: string; onDo
       const src = who === "me" ? from : to;
       const dst = who === "me" ? to : from;
       const r = await translate(text, src, dst);
+      logTranslation(src, dst, text.length, r.source);
       const out = r.text || r.suggestions?.map((p) => (p as unknown as Record<string, string>)[dst]).filter(Boolean)[0] || "—";
       setTurns((t) => [...t, { id: Math.random().toString(36).slice(2), who, original: text, translated: out }]);
       if (r.text) {
@@ -498,15 +518,18 @@ function Phrasebook({ to }: { to: string }) {
       </div>
       <ul className="mt-4 divide-y divide-ink/[0.06]">
         {list.map((p: Phrase) => {
-          const t = (p as unknown as Record<string, string | undefined>)[lang];
+          const own = (p as unknown as Record<string, string | undefined>)[lang];
+          const t = own || (p as unknown as Record<string, string | undefined>).sw;
+          const sayLang = own ? lang : "sw";
           return (
             <li key={p.id} className="flex items-center gap-3 py-3">
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-ink-muted">{p.en}</p>
-                <p className={cn("font-display text-lg font-semibold", t ? "text-ink" : "text-ink-muted/50")}>{t ?? "Coming soon"}</p>
+                <p className="font-display text-lg font-semibold text-ink">{t}</p>
+                {!own && t && <p className="text-xs text-ink-muted">Swahili — widely understood here. {LANG_BY_CODE[lang].name} version coming soon.</p>}
               </div>
               {t && (
-                <Button variant="ghost" size="icon" onClick={() => speak(t, LANG_BY_CODE[lang].speech ?? "sw-KE")} aria-label={`Listen to ${t}`}>
+                <Button variant="ghost" size="icon" onClick={() => speak(t, LANG_BY_CODE[sayLang].speech ?? "sw-KE")} aria-label={`Listen to ${t}`}>
                   <Volume2 className="h-4 w-4" />
                 </Button>
               )}

@@ -1,21 +1,18 @@
 import { NextResponse } from "next/server";
-import { readJSON, writeJSON } from "@/lib/json-store";
-import type { Hire } from "../../hire/route";
+import { settleByCheckoutId } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
 /** Safaricom calls this URL (MPESA_CALLBACK_URL) with the STK push result. */
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => ({}))) as { Body?: { stkCallback?: { CheckoutRequestID?: string; ResultCode?: number; ResultDesc?: string } } };
-  const cb = body.Body?.stkCallback;
+  type Item = { Name: string; Value?: string | number };
+  const b = (await req.json().catch(() => ({}))) as {
+    Body?: { stkCallback?: { CheckoutRequestID?: string; ResultCode?: number; ResultDesc?: string; CallbackMetadata?: { Item?: Item[] } } };
+  };
+  const cb = b.Body?.stkCallback;
   if (cb?.CheckoutRequestID) {
-    const all = await readJSON<Hire[]>("hires.json", []);
-    const h = all.find((x) => x.checkoutRequestId === cb.CheckoutRequestID);
-    if (h) {
-      h.status = cb.ResultCode === 0 ? "deposit-paid" : "deposit-failed";
-      h.message = cb.ResultDesc;
-      await writeJSON("hires.json", all);
-    }
+    const receipt = cb.CallbackMetadata?.Item?.find((i) => i.Name === "MpesaReceiptNumber")?.Value;
+    await settleByCheckoutId(cb.CheckoutRequestID, cb.ResultCode === 0, cb.ResultDesc, receipt ? String(receipt) : undefined).catch((e) => console.error("[mpesa] callback", e));
   }
   return NextResponse.json({ ResultCode: 0, ResultDesc: "Accepted" });
 }

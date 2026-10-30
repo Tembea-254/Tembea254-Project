@@ -1,24 +1,22 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { VR_DESTINATIONS, getVR } from "@/lib/data/vr";
 import { VRPlayer } from "@/components/vr/vr-player";
+import { getVrDestination } from "@/lib/repo/vr";
 
-export function generateStaticParams() {
-  return VR_DESTINATIONS.map((d) => ({ slug: d.slug }));
-}
+export const dynamic = "force-dynamic";
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const d = getVR(params.slug);
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const d = await getVrDestination(params.slug);
   return { title: d ? `${d.name} — Virtual preview` : "Virtual preview" };
 }
 
-export default function VRDestinationPage({ params }: { params: { slug: string } }) {
-  const d = getVR(params.slug);
+export default async function VRDestinationPage({ params }: { params: { slug: string } }) {
+  const d = await getVrDestination(params.slug);
   if (!d) notFound();
   return (
     <Suspense>
-      <VRPlayer slug={d.slug} />
+      <VRPlayer destination={d} />
     </Suspense>
   );
 }

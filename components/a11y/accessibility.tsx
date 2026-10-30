@@ -162,6 +162,13 @@ export function AccessibilityHelper({ className }: { className?: string }) {
     });
   }, []);
 
+  // the ⋯ menu on phones opens the panel with an event
+  useEffect(() => {
+    const open = () => setOpen(true);
+    window.addEventListener("tembea:open-a11y", open);
+    return () => window.removeEventListener("tembea:open-a11y", open);
+  }, []);
+
   // Alt + A toggles the panel
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -452,7 +459,9 @@ export function AccessibilityHelper({ className }: { className?: string }) {
     return () => clearTimeout(t);
   }, [reply, listening]);
 
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   const toggles: { key: keyof A11y; label: string; hint: string; icon: typeof Contrast }[] = [
     { key: "contrast", label: "High contrast", hint: "Stronger colours for low vision", icon: Contrast },

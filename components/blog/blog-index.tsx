@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Clock } from "lucide-react";
 import { useMemo, useState } from "react";
-import { POSTS, type BlogPost } from "@/lib/data/blog";
+import type { BlogPost } from "@/lib/data/blog";
 import { cn, fmtDate, unsplash } from "@/lib/utils";
 import { Reveal } from "../landing/kit";
 import { Footer, Header } from "../landing/site-chrome";
@@ -12,9 +12,9 @@ import { Chip } from "../ui/primitives";
 
 const CATS = ["All", "Safari", "Coast", "City", "Culture", "Guides"] as const;
 
-export function BlogIndex() {
+export function BlogIndex({ posts: POSTS }: { posts: BlogPost[] }) {
   const [cat, setCat] = useState<(typeof CATS)[number]>("All");
-  const list = useMemo(() => POSTS.filter((p) => cat === "All" || p.category === cat), [cat]);
+  const list = useMemo(() => POSTS.filter((p) => cat === "All" || p.category === cat), [cat, POSTS]);
   const [featured, ...rest] = list;
   return (
     <div className="bg-white">

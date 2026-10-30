@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Headset, Moon, Orbit, Play, Search, Volume2 } from "lucide-react";
-import { MODES, VR_DESTINATIONS, VR_TYPES, modesFor, type TravelMode, type VRType } from "@/lib/data/vr";
+import { MODES, VR_TYPES, modesFor, type TravelMode, type VRDestination, type VRType } from "@/lib/data/vr";
+import type { LiveWalk } from "@/lib/repo/live-types";
+import { LiveWalks } from "./live-walks";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Shuffle } from "lucide-react";
@@ -15,10 +17,10 @@ import { Chip, Input, Switch } from "../ui/primitives";
 import { DestinationCard } from "./destination-card";
 import { ImmersiveView } from "./immersive-view";
 
-const FEATURED = VR_DESTINATIONS[0];
-const HERO_SCENE = FEATURED.scenes[0];
 
-export function VRBrowser() {
+export function VRBrowser({ destinations: VR_DESTINATIONS, live }: { destinations: VRDestination[]; live: LiveWalk[] }) {
+  const FEATURED = VR_DESTINATIONS[0];
+  const HERO_SCENE = FEATURED.scenes[0];
   const [type, setType] = useState<VRType | "All">("All");
   const [mode, setMode] = useState<TravelMode | null>(null);
   const router = useRouter();
@@ -185,6 +187,8 @@ export function VRBrowser() {
             </button>
           </div>
         )}
+
+        <LiveWalks live={live} />
 
         <p className={cn("mt-10 text-center text-xs text-ink-muted")}>
           Free spots are open to everyone. Premium unlocks every full-length walk, night scene and 8K collection.

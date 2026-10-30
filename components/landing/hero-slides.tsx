@@ -31,7 +31,9 @@ export function HeroSlides({ onChange }: { onChange?: (i: number) => void }) {
     return () => window.clearInterval(t);
   }, [paused]);
 
-  useEffect(() => onChange?.(i), [i, onChange]);
+  useEffect(() => {
+    onChange?.(i);
+  }, [i, onChange]);
 
   // preload next image
   useEffect(() => {

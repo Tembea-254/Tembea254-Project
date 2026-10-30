@@ -25,7 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MODES, MODE_BY_ID, getVR, modesFor, type TimeOfDay, type TravelMode } from "@/lib/data/vr";
+import { MODES, MODE_BY_ID, modesFor, type TimeOfDay, type TravelMode, type VRDestination } from "@/lib/data/vr";
 import { MODE_ICON } from "./mode-icons";
 import { useSearchParams } from "next/navigation";
 import { Car, Plane } from "lucide-react";
@@ -40,8 +40,7 @@ import { requestMotionPermission } from "./look-controls";
 /** Seconds of a premium scene a free user can explore before the lock screen. */
 const TEASER_SECONDS = 45;
 
-export function VRPlayer({ slug }: { slug: string }) {
-  const d = getVR(slug)!;
+export function VRPlayer({ destination: d }: { destination: VRDestination }) {
   const [profile, setProfile] = useProfile();
   const { log } = useActivity();
   const { bump } = useStats();

@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CATEGORY_BLURB, HIRE_CATEGORIES, HUBS, PROVIDERS, PROVIDER_BY_ID, type HireCategory, type Provider, type RateUnit } from "@/lib/data/market";
+import { CATEGORY_BLURB, HIRE_CATEGORIES, HUBS, type HireCategory, type Provider, type RateUnit } from "@/lib/data/market";
 import { cn, money, todayISO, unsplash } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { Input, Select, Textarea } from "../ui/primitives";
@@ -59,7 +59,8 @@ interface HireView {
   createdAt: number;
 }
 
-export function Marketplace() {
+export function Marketplace({ providers: PROVIDERS }: { providers: Provider[] }) {
+  const PROVIDER_BY_ID = Object.fromEntries(PROVIDERS.map((p) => [p.id, p])) as Record<string, Provider>;
   const [hub, setHub] = useState(HUBS[0].id);
   const [cat, setCat] = useState<HireCategory | "All">("All");
   const [q, setQ] = useState("");
@@ -233,7 +234,7 @@ export function Marketplace() {
       {!list.length && <p className="mt-3 rounded-3xl border border-dashed border-ink/15 p-8 text-center text-ink-muted">No matches here. Try another category or area.</p>}
 
       <AnimatePresence>{hiring && <HireSheet p={hiring} onClose={() => setHiring(null)} onBooked={loadHires} />}</AnimatePresence>
-      <AnimatePresence>{bookingsOpen && <Bookings hires={hires} onClose={() => setBookingsOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{bookingsOpen && <Bookings hires={hires} byId={PROVIDER_BY_ID} onClose={() => setBookingsOpen(false)} />}</AnimatePresence>
       <AnimatePresence>{applyOpen && <ProviderApply onClose={() => setApplyOpen(false)} defaultHub={hub} />}</AnimatePresence>
     </div>
   );
@@ -515,7 +516,7 @@ const STATUS: Record<string, [string, string]> = {
   "demo-deposit": ["Demo deposit", "bg-dusk-50 text-dusk-500"],
 };
 
-function Bookings({ hires, onClose }: { hires: HireView[]; onClose: () => void }) {
+function Bookings({ hires, onClose, byId: PROVIDER_BY_ID }: { hires: HireView[]; onClose: () => void; byId: Record<string, Provider> }) {
   return (
     <Overlay onClose={onClose} side label="My bookings">
       <div className="border-b border-ink/5 p-5 pr-16">

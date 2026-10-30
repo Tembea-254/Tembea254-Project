@@ -1,102 +1,56 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { PROVIDER_BY_ID } from "@/lib/data/market";
-import { newId, readJSON, writeJSON } from "@/lib/json-store";
-import { normalizePhone, stkPush } from "@/lib/mpesa";
+import { and, desc, eq } from "drizzle-orm";
+import { body, handler, json } from "@/lib/api";
+import { getDb, schema } from "@/lib/db";
+import { newId } from "@/lib/db/ids";
+import { normalizePhone } from "@/lib/mpesa";
+import { startPayment } from "@/lib/payments";
+import { HttpError, currentUser, requireUser } from "@/lib/session";
+import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
-export interface Hire {
-  id: string;
-  email: string;
-  providerId: string;
-  providerName: string;
-  start: string; // YYYY-MM-DD
-  units: number;
-  people: number;
-  pickup: string;
-  note: string;
-  phone: string;
-  total: number;
-  deposit: number;
-  status: "requested" | "deposit-pending" | "deposit-paid" | "deposit-failed" | "demo-deposit";
-  checkoutRequestId?: string;
-  message?: string;
-  createdAt: number;
-}
-
-const FILE = "hires.json";
-const view = (h: Hire) => ({ id: h.id, providerId: h.providerId, providerName: h.providerName, start: h.start, units: h.units, people: h.people, total: h.total, deposit: h.deposit, status: h.status, message: h.message, createdAt: h.createdAt });
+type Row = typeof schema.hires.$inferSelect;
+const view = (h: Row, message?: string) => ({ id: h.id, providerId: h.providerId, providerName: h.providerName, start: h.start, units: h.units, people: h.people, total: h.total, deposit: h.deposit, status: h.status, message, createdAt: h.createdAt.getTime() });
 
 /** My hire requests, or one by ?id= (used to poll a deposit). */
-export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email;
-  if (!email) return NextResponse.json({ hires: [] });
-  const all = await readJSON<Hire[]>(FILE, []);
+export const GET = handler(async (req: Request) => {
+  const user = await currentUser();
+  if (!user) return json({ hires: [] });
+  const db = await getDb();
   const id = new URL(req.url).searchParams.get("id");
   if (id) {
-    const h = all.find((x) => x.id === id && x.email === email);
-    return h ? NextResponse.json({ hire: view(h) }) : NextResponse.json({ error: "Not found" }, { status: 404 });
+    const h = (await db.select().from(schema.hires).where(and(eq(schema.hires.id, id), eq(schema.hires.userId, user.id))))[0];
+    if (!h) throw new HttpError(404, "Not found");
+    return json({ hire: view(h) });
   }
-  return NextResponse.json({ hires: all.filter((h) => h.email === email).map(view) });
-}
+  const rows = await db.select().from(schema.hires).where(eq(schema.hires.userId, user.id)).orderBy(desc(schema.hires.createdAt));
+  return json({ hires: rows.map((h) => view(h)) });
+});
 
-/**
- * Request to hire a provider in advance. Prices are recalculated on the server.
- * With payDeposit, a 30% deposit is requested by M-Pesa STK push (demo mode without keys).
- */
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "Please sign in to hire." }, { status: 401 });
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const p = PROVIDER_BY_ID[String(b.providerId)];
-  if (!p) return NextResponse.json({ error: "Provider not found." }, { status: 404 });
+/** Request to hire a provider in advance; optionally pay the deposit by M-Pesa. Prices come from the database. */
+export const POST = handler(async (req: Request) => {
+  const user = await requireUser();
+  const b = await body(req);
+  const db = await getDb();
+  const p = (await db.select().from(schema.providers).where(eq(schema.providers.id, String(b.providerId))))[0];
+  if (!p || p.status !== "active") throw new HttpError(404, "Provider not found.");
   const start = String(b.start || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || new Date(start + "T23:59:59") < new Date()) return NextResponse.json({ error: "Choose a date from today onwards." }, { status: 400 });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || new Date(start + "T23:59:59") < new Date()) throw new HttpError(400, "Choose a date from today onwards.");
   const phone = normalizePhone(String(b.phone || ""));
-  if (!phone) return NextResponse.json({ error: "Enter a valid Safaricom number, e.g. 0712 345 678." }, { status: 400 });
+  if (!phone) throw new HttpError(400, "Enter a valid Safaricom number, e.g. 0712 345 678.");
   const units = Math.min(30, Math.max(1, Math.round(Number(b.units) || 1)));
   const people = Math.min(60, Math.max(1, Math.round(Number(b.people) || 1)));
+  const settings = await getSettings();
   const total = p.rate * units;
-  const deposit = Math.ceil((total * 0.3) / 100) * 100;
-
-  const hire: Hire = {
-    id: newId("h_"),
-    email: session.user.email,
-    providerId: p.id,
-    providerName: p.name,
-    start,
-    units,
-    people,
-    pickup: String(b.pickup || "").slice(0, 120),
-    note: String(b.note || "").slice(0, 600),
-    phone,
-    total,
-    deposit,
-    status: "requested",
-    message: "Request sent — the provider confirms availability, usually within a few hours.",
-    createdAt: Date.now(),
-  };
-
+  const deposit = Math.ceil((total * settings.hireDepositRate) / 100) * 100;
+  const id = newId("h_");
+  await db.insert(schema.hires).values({ id, userId: user.id, providerId: p.id, providerName: p.name, start, units, people, pickup: String(b.pickup || "").slice(0, 120), note: String(b.note || "").slice(0, 600), phone, total, deposit });
+  let message = "Request sent — the provider confirms availability, usually within a few hours.";
   if (b.payDeposit) {
-    try {
-      const r = await stkPush(phone, deposit, "Tembea254", `Hire ${hire.id}`);
-      if (r.mode === "demo") {
-        hire.status = "demo-deposit";
-        hire.message = r.message;
-      } else {
-        hire.status = "deposit-pending";
-        hire.checkoutRequestId = r.checkoutRequestId;
-        hire.message = r.message;
-      }
-    } catch (e) {
-      return NextResponse.json({ error: e instanceof Error ? e.message : "M-Pesa is unavailable right now." }, { status: 502 });
-    }
+    const pay = await startPayment({ userId: user.id, purpose: "hire_deposit", refId: id, amount: deposit, phone, description: `Hire ${id}` });
+    await db.update(schema.hires).set({ paymentId: pay.paymentId, status: pay.mode === "demo" ? "deposit-paid" : "deposit-pending" }).where(eq(schema.hires.id, id));
+    message = pay.message;
   }
-
-  const all = await readJSON<Hire[]>(FILE, []);
-  await writeJSON(FILE, [hire, ...all]);
-  return NextResponse.json({ hire: view(hire) });
-}
+  const h = (await db.select().from(schema.hires).where(eq(schema.hires.id, id)))[0];
+  return json({ hire: { ...view(h, message), status: h.status === "deposit-paid" && !b.payDeposit ? h.status : h.status } });
+});

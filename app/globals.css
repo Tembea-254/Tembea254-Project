@@ -204,3 +204,10 @@ body:has([aria-modal="true"]) .tm-fab {
 html.tm-dock-hidden .tm-fab {
   transform: translateX(160%) !important;
 }
+
+/* phones: on busy screens (feeds, product pages, checkout) the floating buttons live in the ⋯ menu instead */
+@media (max-width: 1023px) {
+  html.tm-dock-tucked .tm-fab {
+    display: none !important;
+  }
+}

@@ -132,7 +132,9 @@ function DayCard({
   const [items, setItems] = useState(day.items);
   const [adding, setAdding] = useState(false);
   // keep local drag order in sync with persisted changes
-  useEffect(() => setItems(day.items), [day.items]);
+  useEffect(() => {
+    setItems(day.items);
+  }, [day.items]);
   const synced = items;
 
   const p = PLACE_BY_ID[day.placeId];

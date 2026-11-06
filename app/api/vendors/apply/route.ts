@@ -1,34 +1,25 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { body, handler, json } from "@/lib/api";
 import { HIRE_CATEGORIES, HUBS } from "@/lib/data/market";
-import { newId, readJSON, writeJSON } from "@/lib/json-store";
+import { getDb, schema } from "@/lib/db";
+import { newId } from "@/lib/db/ids";
+import { HttpError, requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-/** Vendor applications are stored as pending in .data/vendor-applications.json for the team to verify. */
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
-  const b = (await req.json().catch(() => ({}))) as Record<string, string>;
+/** Applications to be listed as a hire provider (driver, guide, photographer, artist). Reviewed in /admin. */
+export const POST = handler(async (req: Request) => {
+  const user = await requireUser();
+  const b = await body<Record<string, string>>(req);
   const business = String(b.business || "").trim().slice(0, 80);
   const phone = String(b.phone || "").replace(/[^\d+ ]/g, "").slice(0, 20);
   const about = String(b.about || "").trim().slice(0, 800);
-  if (business.length < 2 || phone.replace(/\D/g, "").length < 9 || about.length < 20)
-    return NextResponse.json({ error: "Add your business name, a phone number and a short description (20+ characters)." }, { status: 400 });
-  const app = {
-    id: newId("va_"),
-    email: session.user.email,
-    name: session.user.name,
-    business,
-    phone,
-    hub: HUBS.some((h) => h.id === b.hub) ? b.hub : "other",
-    category: HIRE_CATEGORIES.includes(b.category as never) ? b.category : "Other",
-    about,
-    status: "pending",
-    createdAt: Date.now(),
-  };
-  const all = await readJSON<unknown[]>("vendor-applications.json", []);
-  await writeJSON("vendor-applications.json", [app, ...all]);
-  return NextResponse.json({ ok: true });
-}
+  if (business.length < 2 || phone.replace(/\D/g, "").length < 9 || about.length < 20) throw new HttpError(400, "Add your business name, a phone number and a short description (20+ characters).");
+  const db = await getDb();
+  await db.insert(schema.applications).values({
+    id: newId("app_"),
+    userId: user.id,
+    kind: "provider",
+    data: { business, phone, about, hub: HUBS.some((h) => h.id === b.hub) ? b.hub : "other", category: HIRE_CATEGORIES.includes(b.category as never) ? b.category : "Other" },
+  });
+  return json({ ok: true });
+});

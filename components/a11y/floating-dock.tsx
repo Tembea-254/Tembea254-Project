@@ -15,6 +15,12 @@ export function FloatingDock() {
   const pathname = usePathname();
   const immersive = /^\/vr\/[^/]+/.test(pathname);
   const inApp = APP_ROUTES.test(pathname);
+  // screens with their own floating actions or sticky buy bars
+  const busy = /^\/(community|checkout|orders|translator|marketplace\/(product|store))/.test(pathname);
+  useEffect(() => {
+    document.documentElement.classList.toggle("tm-dock-tucked", busy);
+    return () => document.documentElement.classList.remove("tm-dock-tucked");
+  }, [busy]);
 
   // On phones the buttons slide out of the way while you scroll down, and come back when you
   // scroll up or stop scrolling — so they never sit on top of what you're reading.

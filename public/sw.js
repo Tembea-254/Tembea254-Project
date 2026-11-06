@@ -1,5 +1,5 @@
 // Tembea254 service worker: cache-first for static assets, network-first for pages.
-const CACHE = "tembea-v5";
+const CACHE = "tembea-v6";
 const CORE = ["/", "/icon-192.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
@@ -17,7 +17,10 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
-  if (url.pathname.startsWith("/_next/static/") || /\.(svg|png|jpg|webp|woff2?)$/.test(url.pathname)) {
+  // Only files whose names carry a content hash are safe to serve from cache forever.
+  // (Unhashed dev chunks like /_next/static/chunks/app/page.js must always come from the server.)
+  const hashed = /\/_next\/static\/(chunks|css|media)\/.*[.-][0-9a-f]{8,}\.\w+$/.test(url.pathname);
+  if (hashed || (/\.(svg|png|jpg|webp|woff2?)$/.test(url.pathname) && !url.pathname.startsWith("/_next/"))) {
     e.respondWith(
       caches.match(req).then(
         (hit) =>

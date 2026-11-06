@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { POSTS, getPost } from "@/lib/data/blog";
 import { BlogArticle } from "@/components/blog/blog-article";
+import { getBlogPost, getBlogPosts } from "@/lib/repo/blog";
 
-export function generateStaticParams() {
-  return POSTS.map((p) => ({ slug: p.slug }));
-}
+export const revalidate = 60;
+export const dynamicParams = true;
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const p = getPost(params.slug);
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const p = await getBlogPost(params.slug);
   return p ? { title: p.title, description: p.excerpt } : { title: "Blog" };
 }
 
-export default function BlogPostPage({ params }: { params: { slug: string } }) {
-  const post = getPost(params.slug);
+export default async function BlogPostPage({ params }: { params: { slug: string } }) {
+  const all = await getBlogPosts();
+  const post = all.find((p) => p.slug === params.slug);
   if (!post) notFound();
-  return <BlogArticle slug={post.slug} />;
+  return <BlogArticle post={post} more={all.filter((x) => x.slug !== post.slug).slice(0, 3)} />;
 }

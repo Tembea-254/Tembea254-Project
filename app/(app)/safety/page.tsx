@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import { CloudRain, HeartPulse, MapPin, Phone, ShieldAlert, Siren, Waves } from "lucide-react";
 import { ComingSoonHero, PreviewCard } from "@/components/dashboard/coming-soon";
 import { Card } from "@/components/ui/primitives";
+import { activeAlerts } from "@/lib/repo/safety";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Safety & Alerts" };
+export const dynamic = "force-dynamic";
+
+const LEVEL = { info: "bg-sky-50 text-sky-800 ring-sky-200", warning: "bg-ochre-50 text-ochre-700 ring-ochre-200", critical: "bg-maasai-50 text-maasai-700 ring-maasai-200" } as Record<string, string>;
 
 /** Kenya's national emergency lines (999 and 112 work from any phone). */
 const EMERGENCY = [
@@ -12,7 +17,8 @@ const EMERGENCY = [
   { label: "Tourist police / KWS rangers", number: "Ask your lodge or guide" },
 ];
 
-export default function SafetyPage() {
+export default async function SafetyPage() {
+  const alerts = await activeAlerts();
   return (
     <ComingSoonHero
       eyebrow="Safety & alerts"
@@ -21,6 +27,19 @@ export default function SafetyPage() {
       icon={ShieldAlert}
       tone="bg-maasai-500"
     >
+      {alerts.length > 0 && (
+        <section className="mt-6 space-y-3" aria-label="Current travel alerts">
+          {alerts.map((a) => (
+            <div key={a.id} className={cn("rounded-2xl p-4 ring-1", LEVEL[a.level] ?? LEVEL.info)}>
+              <p className="flex flex-wrap items-center gap-2 font-display text-sm font-bold">
+                <ShieldAlert className="h-4 w-4" /> {a.title}
+                <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold">{a.region}</span>
+              </p>
+              <p className="mt-1 text-sm">{a.body}</p>
+            </div>
+          ))}
+        </section>
+      )}
       <Card className="mt-6 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-bold">
           <Phone className="h-5 w-5 text-maasai-500" /> Emergency numbers in Kenya

@@ -2,31 +2,34 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Crown, LogOut, MoreHorizontal, Sparkles } from "lucide-react";
+import { Accessibility, BookOpen, Crown, LogOut, MoreHorizontal, Sparkles } from "lucide-react";
+import { waLink } from "@/lib/site";
+import { WhatsAppIcon } from "../brand/social-icons";
 import { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useMounted, useProfile } from "@/lib/hooks/store";
 import { Logo } from "./logo";
-import { NAV, isActive } from "./nav";
+import { EARN_LINK, NAV, isActive, workspaceLinks } from "./nav";
+import type { WorkspaceAccess } from "@/lib/repo/workspaces";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, access }: { children: React.ReactNode; access?: WorkspaceAccess }) {
   const pathname = usePathname();
   // The VR player is fully immersive: no chrome.
   const immersive = /^\/vr\/[^/]+/.test(pathname);
   if (immersive) return <>{children}</>;
   return (
     <div className="min-h-dvh lg:pl-[264px]">
-      <Sidebar pathname={pathname} />
-      <MobileTopBar />
+      <Sidebar pathname={pathname} access={access} />
+      <MobileTopBar access={access} />
       <main className="pb-28 lg:pb-12">{children}</main>
       <MobileNav pathname={pathname} />
     </div>
   );
 }
 
-function Sidebar({ pathname }: { pathname: string }) {
+function Sidebar({ pathname, access }: { pathname: string; access?: WorkspaceAccess }) {
   const [profile] = useProfile();
   const mounted = useMounted();
   return (
@@ -35,7 +38,7 @@ function Sidebar({ pathname }: { pathname: string }) {
         <Logo className="h-11 sm:h-11" />
       </Link>
       <div className="ml-2 mt-3 h-1 w-24 rounded-full bg-kenya-stripe opacity-90" />
-      <nav className="mt-8 flex flex-1 flex-col gap-1">
+      <nav className="mt-6 flex flex-1 flex-col gap-1 overflow-y-auto">
         {NAV.map((item) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
@@ -64,9 +67,10 @@ function Sidebar({ pathname }: { pathname: string }) {
             </Link>
           );
         })}
+        <Workspaces pathname={pathname} access={access} />
       </nav>
 
-      {mounted && !profile.premium && (
+      {mounted && !profile.premium && !workspaceLinks(access).length && (
         <Link href="/profile#premium" className="mb-4 block overflow-hidden rounded-3xl bg-ink p-4 text-white">
           <div className="flex items-center gap-2 font-display text-sm font-semibold">
             <Crown className="h-4 w-4 text-ochre-400" /> Tembea Premium
@@ -80,6 +84,45 @@ function Sidebar({ pathname }: { pathname: string }) {
 
       <UserChip />
     </aside>
+  );
+}
+
+function Workspaces({ pathname, access }: { pathname: string; access?: WorkspaceAccess }) {
+  const links = workspaceLinks(access);
+  if (!access) return null;
+  const canApply = access.seller === "none" || access.seller === "rejected" || (!access.admin && (access.creator === "none" || access.creator === "rejected"));
+  const hasOwn = links.some((l) => !l.dark);
+  return (
+    <div className="mt-4 border-t border-ink/[0.06] pt-4">
+      <p className="px-3 pb-1 font-display text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Workspaces</p>
+      {links.map((w) => {
+        const active = isActive(pathname, w.href);
+        return (
+          <Link
+            key={w.href}
+            href={w.href}
+            className={cn("flex items-center gap-3 rounded-2xl px-3 py-2 font-display text-[14px] font-medium", active ? "bg-savanna-50 text-ink" : "text-ink-muted hover:bg-sand-50 hover:text-ink")}
+          >
+            <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-xl", w.dark ? "bg-ink text-white" : "bg-sand-100 text-ink-soft")}>
+              <w.icon className="h-[17px] w-[17px]" />
+            </span>
+            <span className="min-w-0 flex-1 truncate">{w.label}</span>
+            {w.pill && <span className="shrink-0 rounded-full bg-ochre-50 px-2 py-0.5 text-[10px] font-semibold text-ochre-700">{w.pill}</span>}
+          </Link>
+        );
+      })}
+      {canApply ? (
+        <Link
+          href={EARN_LINK.href}
+          className={cn("mt-1 flex items-center gap-3 rounded-2xl px-3 py-2 font-display text-[14px] font-medium", isActive(pathname, EARN_LINK.href) ? "bg-savanna-50 text-ink" : "text-ink-muted hover:bg-sand-50 hover:text-ink")}
+        >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-ochre-50 text-ochre-700">
+            <EARN_LINK.icon className="h-[17px] w-[17px]" />
+          </span>
+          <span className="flex-1">{hasOwn ? "Apply for more" : EARN_LINK.label}</span>
+        </Link>
+      ) : null}
+    </div>
   );
 }
 
@@ -120,25 +163,28 @@ export function Avatar({ name, image, className }: { name: string; image?: strin
   );
 }
 
-function MobileTopBar() {
+function MobileTopBar({ access }: { access?: WorkspaceAccess }) {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-ink/[0.06] bg-white/85 px-4 py-3 backdrop-blur-xl lg:hidden">
       <Link href="/dashboard" className="flex items-center" aria-label="Tembea254 dashboard">
         <Logo className="h-8 sm:h-8" />
       </Link>
       <div className="flex items-center gap-2">
-        <MobileMore />
+        <MobileMore access={access} />
         <MobileUser />
       </div>
     </header>
   );
 }
 
-function MobileMore() {
+function MobileMore({ access }: { access?: WorkspaceAccess }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  useEffect(() => setOpen(false), [pathname]);
-  const more = NAV.filter((n) => ["/translator", "/safety", "/profile"].includes(n.href));
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+  const ws = workspaceLinks(access);
+  const more = [...NAV.filter((n) => ["/translator", "/safety", "/profile"].includes(n.href)), ...ws, ...(access && ws.filter((w) => !w.dark).length < 2 ? [EARN_LINK] : [])];
   return (
     <div className="relative">
       <button onClick={() => setOpen((o) => !o)} className="grid h-9 w-9 place-items-center rounded-full border border-ink/10" aria-label="More pages" aria-expanded={open}>
@@ -154,6 +200,12 @@ function MobileMore() {
           <Link href="/blog" className="flex items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-semibold hover:bg-sand-50">
             <BookOpen className="h-4 w-4 text-ink-muted" /> Blog
           </Link>
+          <button onClick={() => (setOpen(false), window.dispatchEvent(new Event("tembea:open-a11y")))} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left font-display text-sm font-semibold hover:bg-sand-50">
+            <Accessibility className="h-4 w-4 text-ink-muted" /> Accessibility & voice
+          </button>
+          <a href={waLink()} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-semibold hover:bg-sand-50">
+            <WhatsAppIcon className="h-4 w-4 text-[#25D366]" /> Chat on WhatsApp
+          </a>
         </div>
       )}
     </div>

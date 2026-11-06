@@ -42,6 +42,9 @@ export const kv = {
   async set(key: string, value: unknown) {
     await cmd("SET", key, JSON.stringify(value));
   },
+  async keys(pattern: string) {
+    return (await cmd<string[]>("KEYS", pattern)) ?? [];
+  },
   /** set only if the key doesn't exist yet; returns false when it already existed */
   async setNX(key: string, value: unknown) {
     return (await cmd<string | null>("SET", key, JSON.stringify(value), "NX")) === "OK";

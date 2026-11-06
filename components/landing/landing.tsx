@@ -77,6 +77,8 @@ export function Landing() {
         /* keep default */
       }
       openLogin({ callbackUrl: path });
+      // keep the address bar clean (no ?callbackUrl=%2F… showing)
+      window.history.replaceState(null, "", window.location.pathname + window.location.hash);
     }
   }, [params, openLogin]);
 

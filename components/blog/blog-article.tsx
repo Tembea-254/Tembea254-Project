@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion, useScroll, useSpring } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Share2, Volume2 } from "lucide-react";
-import { POSTS, getPost } from "@/lib/data/blog";
+import type { BlogPost } from "@/lib/data/blog";
 import { waLink } from "@/lib/site";
 import { unsplash } from "@/lib/utils";
 import { SOCIAL_ICONS, WhatsAppIcon } from "../brand/social-icons";
@@ -12,12 +12,11 @@ import { Footer, Header } from "../landing/site-chrome";
 import { Button } from "../ui/button";
 import { Meta } from "./blog-index";
 
-export function BlogArticle({ slug }: { slug: string }) {
-  const p = getPost(slug)!;
+export function BlogArticle({ post: p, more }: { post: BlogPost; more: BlogPost[] }) {
+  const slug = p.slug;
   const tryIt = useTry();
   const { scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30 });
-  const more = POSTS.filter((x) => x.slug !== slug).slice(0, 3);
   const url = typeof window !== "undefined" ? window.location.href : "";
 
   const listen = () => {

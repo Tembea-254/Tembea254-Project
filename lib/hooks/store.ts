@@ -72,13 +72,50 @@ function usePersisted<T>(key: string, fallback: T) {
 /* ---------------- Trips ---------------- */
 
 const EMPTY_TRIPS: Trip[] = [];
+
+/* Server sync: trips are kept locally (works offline) and mirrored to the account when signed in. */
+const pending = new Map<string, number>();
+function pushTrip(trip: Trip) {
+  window.clearTimeout(pending.get(trip.id));
+  pending.set(
+    trip.id,
+    window.setTimeout(() => {
+      pending.delete(trip.id);
+      fetch("/api/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trip }) }).catch(() => {});
+    }, 1200),
+  );
+}
+let pulled = false;
+
 export function useTrips() {
   const [trips, setTrips] = usePersisted<Trip[]>("tembea.trips", EMPTY_TRIPS);
+
+  // once per page load: merge trips saved to the account on other devices
+  useEffect(() => {
+    if (pulled) return;
+    pulled = true;
+    fetch("/api/trips")
+      .then((r) => (r.ok ? r.json() : { trips: [] }))
+      .then(({ trips: remote }: { trips: Trip[] }) => {
+        if (!remote?.length) return;
+        setTrips((local) => {
+          const byId = new Map(local.map((t) => [t.id, t]));
+          for (const r of remote) {
+            const l = byId.get(r.id);
+            if (!l || (r.updatedAt ?? 0) > (l.updatedAt ?? 0)) byId.set(r.id, r);
+          }
+          return [...byId.values()].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+        });
+      })
+      .catch(() => {});
+  }, [setTrips]);
+
   const saveTrip = useCallback(
     (trip: Trip) =>
       setTrips((prev) => {
         const i = prev.findIndex((t) => t.id === trip.id);
         const next = { ...trip, updatedAt: Date.now() };
+        pushTrip(next);
         if (i === -1) return [next, ...prev];
         const copy = [...prev];
         copy[i] = next;
@@ -86,7 +123,13 @@ export function useTrips() {
       }),
     [setTrips],
   );
-  const deleteTrip = useCallback((id: string) => setTrips((prev) => prev.filter((t) => t.id !== id)), [setTrips]);
+  const deleteTrip = useCallback(
+    (id: string) => {
+      fetch("/api/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deleteId: id }) }).catch(() => {});
+      setTrips((prev) => prev.filter((t) => t.id !== id));
+    },
+    [setTrips],
+  );
   return { trips, saveTrip, deleteTrip };
 }
 
@@ -140,6 +183,8 @@ export function useStats() {
 /** true after the first client render — use to avoid hydration mismatches for storage-driven UI */
 export function useMounted() {
   const [m, setM] = useState(false);
-  useEffect(() => setM(true), []);
+  useEffect(() => {
+    setM(true);
+  }, []);
   return m;
 }

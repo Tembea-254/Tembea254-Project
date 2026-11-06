@@ -10,13 +10,20 @@ export interface Language {
   local?: boolean;
   /** MyMemory language code */
   mt?: string;
+  /** Served by Tembea's own translation engine (NLLB service) instead of a public MT API */
+  api?: "nllb";
+  /** Early model: show an "Experimental" badge and never use it for safety-critical text */
+  experimental?: boolean;
+  /** Google Cloud Translation code when it differs from `code` */
+  google?: string;
 }
 
 export const LANGUAGES: Language[] = [
   { code: "en", name: "English", native: "English", speech: "en-GB", mt: "en" },
   { code: "sw", name: "Swahili", native: "Kiswahili", kenyan: true, speech: "sw-KE", mt: "sw" },
   { code: "ki", name: "Kikuyu", native: "Gĩkũyũ", kenyan: true, local: true, speech: "sw-KE" },
-  { code: "luo", name: "Luo", native: "Dholuo", kenyan: true, local: true, speech: "sw-KE" },
+  { code: "luo", name: "Luo", native: "Dholuo", kenyan: true, local: true, api: "nllb", experimental: true, speech: "sw-KE" },
+  { code: "dav", name: "Taita", native: "Taita", kenyan: true, local: true, api: "nllb", experimental: true, speech: "sw-KE" },
   { code: "mas", name: "Maasai", native: "Maa", kenyan: true, local: true, speech: "sw-KE" },
   { code: "kln", name: "Kalenjin", native: "Kalenjin", kenyan: true, local: true, speech: "sw-KE" },
   { code: "fr", name: "French", native: "Français", speech: "fr-FR", mt: "fr" },
@@ -25,7 +32,7 @@ export const LANGUAGES: Language[] = [
   { code: "it", name: "Italian", native: "Italiano", speech: "it-IT", mt: "it" },
   { code: "pt", name: "Portuguese", native: "Português", speech: "pt-PT", mt: "pt" },
   { code: "nl", name: "Dutch", native: "Nederlands", speech: "nl-NL", mt: "nl" },
-  { code: "zh", name: "Chinese", native: "中文", speech: "zh-CN", mt: "zh-CN" },
+  { code: "zh", name: "Chinese", native: "中文", speech: "zh-CN", mt: "zh-CN", google: "zh-CN" },
   { code: "ja", name: "Japanese", native: "日本語", speech: "ja-JP", mt: "ja" },
   { code: "ar", name: "Arabic", native: "العربية", speech: "ar-SA", mt: "ar" },
   { code: "hi", name: "Hindi", native: "हिन्दी", speech: "hi-IN", mt: "hi" },
@@ -46,6 +53,7 @@ export interface Phrase {
   sw?: string;
   ki?: string;
   luo?: string;
+  dav?: string;
   mas?: string;
   kln?: string;
 }
@@ -93,5 +101,5 @@ export const PHRASES: Phrase[] = [
   { id: "beautiful", en: "Beautiful", category: "Safari", sw: "Nzuri sana / Maridadi", kln: "Kararan" },
 ];
 
-export const PHRASE_LANGS = ["en", "sw", "ki", "luo", "mas", "kln"] as const;
+export const PHRASE_LANGS = ["en", "sw", "ki", "luo", "dav", "mas", "kln"] as const;
 export type PhraseLang = (typeof PHRASE_LANGS)[number];

@@ -1,0 +1,9 @@
+# torch is installed separately in the Dockerfile (CPU wheel). Pin these to the versions your Colab used
+# (run `pip freeze | grep -iE "transformers|peft|sentencepiece"` there) so the adapters load identically.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2
+transformers>=4.44
+peft>=0.12
+sentencepiece>=0.2
+accelerate>=0.30

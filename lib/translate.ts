@@ -6,6 +6,10 @@ export interface TranslationResult {
   confidence?: number;
   suggestions?: Phrase[];
   note?: string;
+  /** which engine answered, e.g. "google", "nllb", "google+nllb" */
+  engine?: string;
+  /** early model: do not rely on it for safety-critical text */
+  experimental?: boolean;
 }
 
 const norm = (s: string) =>
@@ -68,6 +72,34 @@ function decode(s: string) {
   return el.value;
 }
 
+/** Ask Tembea's own API (Google Cloud / NLLB with failover). Returns null when it is unavailable. */
+async function viaApi(text: string, from: string, to: string): Promise<TranslationResult | null> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 14000);
+  try {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, from, to }),
+      signal: ctl.signal,
+    });
+    if (!res.ok) return null;
+    const d = (await res.json()) as { text?: string; engine?: string; experimental?: boolean };
+    if (!d.text) return null;
+    return {
+      text: d.text,
+      source: "machine",
+      engine: d.engine,
+      experimental: d.experimental,
+      note: d.experimental ? "Early-stage model for a Kenyan language. Check anything important with a local, and use the Phrases tab for emergencies." : undefined,
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function translate(text: string, from: string, to: string): Promise<TranslationResult> {
   const input = text.trim();
   if (!input) return { text: "", source: "none" };
@@ -90,8 +122,17 @@ export async function translate(text: string, from: string, to: string): Promise
 
   const fromLocal = LANG_BY_CODE[from]?.local;
   const toLocal = LANG_BY_CODE[to]?.local;
+  const engineLocal = LANG_BY_CODE[from]?.api === "nllb" || LANG_BY_CODE[to]?.api === "nllb";
+  // a local language with neither a phrasebook match nor an engine (Kikuyu, Maa, Kalenjin) cannot be machine translated
+  const unsupportedLocal = (fromLocal && LANG_BY_CODE[from]?.api !== "nllb") || (toLocal && LANG_BY_CODE[to]?.api !== "nllb");
 
-  // 2. Machine translation for supported pairs.
+  // 2. Tembea translation API: Google Cloud / our NLLB engine, with server-side failover.
+  if (!unsupportedLocal) {
+    const r = await viaApi(input, from, to);
+    if (r) return r;
+  }
+
+  // 3. Public MT fallback in the browser for pairs without a local-language leg.
   if (!fromLocal && !toLocal) {
     try {
       return await machine(input, from, to);
@@ -119,7 +160,9 @@ export async function translate(text: string, from: string, to: string): Promise
     text: "",
     source: "none",
     suggestions: similarPhrases(input, from, to),
-    note: `Full ${name} machine translation isn't available yet — try one of these phrases, or switch to Swahili, which most Kenyans speak.`,
+    note: engineLocal
+      ? `The ${name} translation engine is waking up or offline — try again in a moment, use one of these phrases, or switch to Swahili, which most Kenyans speak.`
+      : `Full ${name} machine translation isn't available yet — try one of these phrases, or switch to Swahili, which most Kenyans speak.`,
   };
 }
 

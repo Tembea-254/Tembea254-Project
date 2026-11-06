@@ -594,7 +594,7 @@ export async function savePhrase(f: FormData) {
   const english = str(f, "english", 200);
   if (!english) throw new Error("Add the English phrase.");
   const translations: Record<string, string> = {};
-  for (const lang of ["sw", "ki", "luo", "mas", "kln", "kam", "luy", "som"]) {
+  for (const lang of ["sw", "ki", "luo", "dav", "mas", "kln", "kam", "luy", "som"]) {
     const v = str(f, lang, 200);
     if (v) translations[lang] = v;
   }

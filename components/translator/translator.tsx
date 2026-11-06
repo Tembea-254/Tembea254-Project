@@ -142,7 +142,7 @@ export function Translator({ phrases }: { phrases?: Phrase[] }) {
 }
 
 function LanguageBar({ from, to, setFrom, setTo }: { from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void }) {
-  const quick = ["sw", "ki", "luo", "mas", "kln"];
+  const quick = ["sw", "ki", "luo", "dav", "mas", "kln"];
   return (
     <Card className="p-3 sm:p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -182,7 +182,7 @@ function LangSelect({ value, onChange, label }: { value: string; onChange: (v: s
           {LANGUAGES.filter((l) => l.kenyan).map((l) => (
             <option key={l.code} value={l.code}>
               {l.name} — {l.native}
-              {l.local ? " (phrasebook)" : ""}
+              {l.api ? " (beta)" : l.local ? " (phrasebook)" : ""}
             </option>
           ))}
         </optgroup>
@@ -215,7 +215,7 @@ function useTranslation(from: string, to: string, onDone: (e: Omit<HistoryEntry,
       const id = ++reqId.current;
       setLoading(true);
       const r = await translate(text, from, to);
-      logTranslation(from, to, text.length, r.source);
+      logTranslation(from, to, text.length, r.engine ?? r.source);
       if (id !== reqId.current) return null;
       setResult(r);
       setLoading(false);
@@ -313,6 +313,7 @@ function TextMode({ from, to, onDone }: { from: string; to: string; onDone: (e: 
               {loading && <Loader2 className="h-4 w-4 animate-spin text-savanna-600" />}
               {result?.source === "phrasebook" && <Badge tone="ochre">Phrasebook</Badge>}
               {result?.source === "machine" && <Badge tone="neutral">Machine translation</Badge>}
+              {result?.experimental && <Badge tone="ochre">Experimental</Badge>}
             </div>
           </div>
           <div className="mt-3 min-h-[168px]">
@@ -389,7 +390,7 @@ function ConversationMode({ from, to, onDone }: { from: string; to: string; onDo
       const src = who === "me" ? from : to;
       const dst = who === "me" ? to : from;
       const r = await translate(text, src, dst);
-      logTranslation(src, dst, text.length, r.source);
+      logTranslation(src, dst, text.length, r.engine ?? r.source);
       const out = r.text || r.suggestions?.map((p) => (p as unknown as Record<string, string>)[dst]).filter(Boolean)[0] || "—";
       setTurns((t) => [...t, { id: Math.random().toString(36).slice(2), who, original: text, translated: out }]);
       if (r.text) {

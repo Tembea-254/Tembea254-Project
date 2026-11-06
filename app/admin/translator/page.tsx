@@ -12,6 +12,7 @@ const LANGS = [
   ["sw", "Swahili"],
   ["ki", "Kikuyu"],
   ["luo", "Dholuo"],
+  ["dav", "Taita"],
   ["mas", "Maa"],
   ["kln", "Kalenjin"],
 ] as const;

@@ -1,0 +1,10 @@
+services:
+  translator:
+    build: .
+    restart: unless-stopped        # comes back after crashes, watchdog exits and host reboots
+    ports: ["8000:8000"]
+    environment:
+      NLLB_SERVICE_KEY: ${NLLB_SERVICE_KEY}
+    volumes:
+      - ./models:/models           # luo_lora/ and dav_lora/ (optional: the image already contains a copy)
+    # deploy: { resources: { limits: { memory: 6g } } }

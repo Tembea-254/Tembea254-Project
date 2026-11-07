@@ -85,6 +85,8 @@ async function nllb(text: string, from: string, to: string): Promise<string> {
     { method: "POST", headers: { "Content-Type": "application/json", ...(NLLB_KEY ? { "x-api-key": NLLB_KEY } : {}) }, body: JSON.stringify({ text, from, to }) },
     NLLB_TIMEOUT,
   );
+  // a 4xx is about this request (e.g. a language the model doesn't know), not a sign the engine is down
+  if (res.status === 400 || res.status === 422) throw new HttpError(422, "This language pair isn't supported by the translation engine yet.");
   if (!res.ok) throw new Error(`nllb ${res.status}`);
   const data = (await res.json()) as { text?: string };
   if (!data.text) throw new Error("nllb empty");
@@ -99,7 +101,7 @@ async function run(e: Engine, fn: () => Promise<string>): Promise<string> {
     succeeded(e);
     return out;
   } catch (err) {
-    failed(e);
+    if (!(err instanceof HttpError)) failed(e);
     throw err;
   }
 }
@@ -130,6 +132,10 @@ export async function translateServer(text: string, from: string, to: string): P
   const key = `${from}|${to}|${text.trim().toLowerCase()}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
+
+  // Kikuyu, Maa and Kalenjin have no machine-translation model yet: they are served by the phrasebook in the browser
+  const noEngine = [f, t].find((l) => l.local && !l.api);
+  if (noEngine) throw new HttpError(422, `${noEngine.name} isn't machine-translated yet — try the phrasebook phrases instead.`);
 
   const experimental = !!(f.experimental || t.experimental);
   const fromLocal = f.api === "nllb";

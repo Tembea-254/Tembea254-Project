@@ -1,14 +1,3 @@
-"""
-Tembea254 translation service (NLLB + LoRA adapters for Dholuo and Taita).
-
-Endpoints
-  GET  /health     liveness: the process is up (used by Docker / the platform to decide on restarts)
-  GET  /ready      readiness: models are loaded and can translate (503 while loading)
-  POST /translate  {"text": "...", "from": "en", "to": "luo"}   header: x-api-key
-
-Self-healing: a watchdog translates a canary sentence every minute. If that fails or hangs three times in a row
-the process exits, and the container restart policy brings it back with no manual action.
-"""
 import contextlib
 import hmac
 import logging
@@ -30,6 +19,23 @@ FAKE = os.getenv("FAKE_MODEL") == "1"  # tests only: no weights, echo translatio
 MAX_QUEUE = int(os.getenv("MAX_QUEUE", "8"))
 WATCHDOG_SECONDS = int(os.getenv("WATCHDOG_SECONDS", "60"))
 WATCHDOG_STRIKES = int(os.getenv("WATCHDOG_STRIKES", "3"))
+WATCHDOG_TIMEOUT = int(os.getenv("WATCHDOG_TIMEOUT", "120"))  # a canary slower than this counts as a strike
+NUM_BEAMS = int(os.getenv("NUM_BEAMS", "4"))  # 1 or 2 is much faster on a CPU; quality was measured with 4
+
+
+def cpu_limit() -> int:
+    """CPUs this container may really use. os.cpu_count() reports the HOST cores, which makes torch start far too
+    many threads inside a limited container and run very slowly."""
+    try:
+        quota, period = open("/sys/fs/cgroup/cpu.max").read().split()
+        if quota != "max":
+            return max(1, round(int(quota) / int(period)))
+    except Exception:
+        pass
+    try:
+        return max(1, len(os.sched_getaffinity(0)))
+    except Exception:
+        return os.cpu_count() or 1
 
 # Tembea language code -> NLLB code. Taita borrows the Swahili tag: its adapter was trained that way (and is the
 # only adapter loaded for Taita requests, so it never clashes with real Swahili).
@@ -47,6 +53,7 @@ class Engine:
     def __init__(self):
         self.lock = threading.Lock()  # adapter switching is global state, so one translation at a time
         self.adapters: list[str] = []
+        self.warm = False
         if FAKE:
             self.model = None
             return
@@ -55,6 +62,9 @@ class Engine:
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
         self.torch = torch
+        threads = int(os.getenv("TORCH_THREADS", "0")) or min(cpu_limit(), 8)
+        torch.set_num_threads(threads)
+        log.info("torch threads: %d (cpu limit %d, host cores %s, beams %d)", threads, cpu_limit(), os.cpu_count(), NUM_BEAMS)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         dtype = torch.float16 if self.device == "cuda" else torch.float32
         log.info("loading %s on %s", BASE_MODEL, self.device)
@@ -90,13 +100,16 @@ class Engine:
             ctx = contextlib.nullcontext()
         else:
             ctx = self.model.disable_adapter() if self.adapters else contextlib.nullcontext()
+        n_in = int(enc["input_ids"].shape[1])
+        limit = min(96, 2 * n_in + 16)  # a short input can never run on for 96 steps
         with self.torch.no_grad(), ctx:
             out = self.model.generate(
                 **enc,
                 forced_bos_token_id=self.tok.convert_tokens_to_ids(NLLB[dst]),
-                max_length=96, num_beams=4, no_repeat_ngram_size=3,
+                max_length=limit, num_beams=NUM_BEAMS, no_repeat_ngram_size=3,
                 max_time=20,  # hard stop for one sentence
             )
+        log.info("leg %s>%s: %d tokens in, %d out (limit %d)", src, dst, n_in, int(out.shape[1]), limit)
         return self.tok.batch_decode(out, skip_special_tokens=True)[0]
 
     def translate(self, text: str, src: str, dst: str) -> str:
@@ -119,7 +132,10 @@ def _load():
     global engine, load_error
     try:
         engine = Engine()
+        t0 = time.time()
         engine.translate("Hello", "en", "sw")  # warm-up so the first real request is fast
+        log.info("warm-up translation took %.1fs", time.time() - t0)
+        engine.warm = True
         log.info("engine ready (adapters: %s)", engine.adapters if not FAKE else "fake")
     except Exception as e:  # keep the process alive so /health stays up and the error is visible
         load_error = repr(e)
@@ -130,12 +146,12 @@ def _watchdog():
     strikes = 0
     while True:
         time.sleep(WATCHDOG_SECONDS)
-        if engine is None:
-            continue
+        if engine is None or not engine.warm or inflight > 0:
+            continue  # still loading, or busy with real users: not a sign of a stuck engine
         result: list[str] = []
         t = threading.Thread(target=lambda: result.append(engine.translate("Hello", "en", "sw")), daemon=True)
         t.start()
-        t.join(30)
+        t.join(WATCHDOG_TIMEOUT)
         strikes = 0 if result else strikes + 1
         if strikes:
             log.error("watchdog: canary failed (%d/%d)", strikes, WATCHDOG_STRIKES)
@@ -160,6 +176,11 @@ class Req(BaseModel):
     to: str
 
 
+@app.get("/")
+def root():
+    return {"service": "tembea-translator", "ready": engine is not None and engine.warm}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -175,6 +196,8 @@ def ready():
 @app.post("/translate")
 def translate(req: Req, x_api_key: str = Header(default="")):
     global inflight
+    if not API_KEY and not FAKE:  # never run an open, unauthenticated model endpoint by accident
+        raise HTTPException(503, "NLLB_SERVICE_KEY is not set on the service")
     if API_KEY and not hmac.compare_digest(x_api_key, API_KEY):
         raise HTTPException(401, "bad key")
     if engine is None:

@@ -10,6 +10,13 @@ export interface TranslationResult {
   engine?: string;
   /** early model: do not rely on it for safety-critical text */
   experimental?: boolean;
+  /** how long the translation took, in milliseconds */
+  ms?: number;
+}
+
+export interface TranslateOptions {
+  /** ignore the phrasebook and force a live translation (used by "Try live translation instead") */
+  skipPhrasebook?: boolean;
 }
 
 const norm = (s: string) =>
@@ -62,7 +69,7 @@ async function machine(text: string, from: string, to: string): Promise<Translat
   const data = (await res.json()) as { responseData?: { translatedText?: string; match?: number }; responseStatus?: number };
   const out = data.responseData?.translatedText ?? "";
   if (!out || data.responseStatus !== 200 || /MYMEMORY WARNING/i.test(out)) throw new Error("MT quota or error");
-  return { text: decode(out), source: "machine", confidence: data.responseData?.match };
+  return { text: decode(out), source: "machine", engine: "mymemory", confidence: data.responseData?.match };
 }
 
 function decode(s: string) {
@@ -72,8 +79,10 @@ function decode(s: string) {
   return el.value;
 }
 
-/** Ask Tembea's own API (Google Cloud / NLLB with failover). Returns null when it is unavailable. */
-async function viaApi(text: string, from: string, to: string): Promise<TranslationResult | null> {
+type ApiOutcome = { ok: true; result: TranslationResult } | { ok: false; problem: string };
+
+/** Ask Tembea's own API (Google Cloud / NLLB with failover). Says why when it cannot answer. */
+async function viaApi(text: string, from: string, to: string): Promise<ApiOutcome> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 14000);
   try {
@@ -83,42 +92,44 @@ async function viaApi(text: string, from: string, to: string): Promise<Translati
       body: JSON.stringify({ text, from, to }),
       signal: ctl.signal,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      const problem =
+        res.status === 401 ? "please sign in again" :
+        res.status === 429 ? "too many requests, wait a few seconds" :
+        res.status === 503 ? "the engine is busy or offline" :
+        d.error ?? `error ${res.status}`;
+      return { ok: false, problem };
+    }
     const d = (await res.json()) as { text?: string; engine?: string; experimental?: boolean };
-    if (!d.text) return null;
+    if (!d.text) return { ok: false, problem: "empty answer" };
     return {
-      text: d.text,
-      source: "machine",
-      engine: d.engine,
-      experimental: d.experimental,
-      note: d.experimental ? "Early-stage model for a Kenyan language. Check anything important with a local, and use the Phrases tab for emergencies." : undefined,
+      ok: true,
+      result: {
+        text: d.text,
+        source: "machine",
+        engine: d.engine,
+        experimental: d.experimental,
+        note: d.experimental ? "Early-stage model for a Kenyan language. Check anything important with a local, and use the Phrases tab for emergencies." : undefined,
+      },
     };
   } catch {
-    return null;
+    return { ok: false, problem: "no answer in time" };
   } finally {
     clearTimeout(timer);
   }
 }
 
-export async function translate(text: string, from: string, to: string): Promise<TranslationResult> {
+export async function translate(text: string, from: string, to: string, opts: TranslateOptions = {}): Promise<TranslationResult> {
+  const t0 = Date.now();
+  const r = await translateInner(text, from, to, opts);
+  return { ...r, ms: Date.now() - t0 };
+}
+
+async function translateInner(text: string, from: string, to: string, opts: TranslateOptions): Promise<TranslationResult> {
   const input = text.trim();
   if (!input) return { text: "", source: "none" };
   if (from === to) return { text: input, source: "phrasebook" };
-
-  // 1. Phrasebook first (works offline, covers local languages).
-  const hit = findPhrase(input, from);
-  if (hit) {
-    const direct = phraseText(hit, to);
-    if (direct) return { text: direct, source: "phrasebook", confidence: 1 };
-    // pivot through English for languages the phrasebook doesn't hold
-    if (LANG_BY_CODE[to]?.mt) {
-      try {
-        return { ...(await machine(hit.en, "en", to)), note: "Translated via the English phrase" };
-      } catch {
-        /* fall through */
-      }
-    }
-  }
 
   const fromLocal = LANG_BY_CODE[from]?.local;
   const toLocal = LANG_BY_CODE[to]?.local;
@@ -126,18 +137,35 @@ export async function translate(text: string, from: string, to: string): Promise
   // a local language with neither a phrasebook match nor an engine (Kikuyu, Maa, Kalenjin) cannot be machine translated
   const unsupportedLocal = (fromLocal && LANG_BY_CODE[from]?.api !== "nllb") || (toLocal && LANG_BY_CODE[to]?.api !== "nllb");
 
+  // 1. Phrasebook first (verified phrases, works offline). Skipped when the user asks for a live translation.
+  if (!opts.skipPhrasebook) {
+    const hit = findPhrase(input, from);
+    if (hit) {
+      const direct = phraseText(hit, to);
+      if (direct) return { text: direct, source: "phrasebook", engine: "phrasebook", confidence: 1 };
+      // the phrasebook has the phrase but not in the target language: translate its English text live
+      if (!(toLocal && LANG_BY_CODE[to]?.api !== "nllb")) {
+        const o = await viaApi(hit.en, "en", to);
+        if (o.ok) return { ...o.result, note: o.result.note ?? "Translated via the English phrase" };
+      }
+    }
+  }
+
   // 2. Tembea translation API: Google Cloud / our NLLB engine, with server-side failover.
+  let apiProblem: string | undefined;
   if (!unsupportedLocal) {
-    const r = await viaApi(input, from, to);
-    if (r) return r;
+    const o = await viaApi(input, from, to);
+    if (o.ok) return o.result;
+    apiProblem = o.problem;
   }
 
   // 3. Public MT fallback in the browser for pairs without a local-language leg.
   if (!fromLocal && !toLocal) {
     try {
-      return await machine(input, from, to);
+      const m = await machine(input, from, to);
+      return apiProblem ? { ...m, note: `Tembea's engine is unavailable (${apiProblem}), so this came from a public fallback and may be less accurate.` } : m;
     } catch {
-      return { text: "", source: "none", note: "Couldn't reach the translation service. Check your connection and try again." };
+      return { text: "", source: "none", note: `Couldn't reach a translation service${apiProblem ? ` (${apiProblem})` : ""}. Check your connection and try again.` };
     }
   }
 
@@ -161,7 +189,7 @@ export async function translate(text: string, from: string, to: string): Promise
     source: "none",
     suggestions: similarPhrases(input, from, to),
     note: engineLocal
-      ? `The ${name} translation engine is waking up or offline — try again in a moment, use one of these phrases, or switch to Swahili, which most Kenyans speak.`
+      ? `The ${name} translation engine didn't answer${apiProblem ? ` (${apiProblem})` : ""} — try again in a moment, use one of these phrases, or switch to Swahili, which most Kenyans speak.`
       : `Full ${name} machine translation isn't available yet — try one of these phrases, or switch to Swahili, which most Kenyans speak.`,
   };
 }

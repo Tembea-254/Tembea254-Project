@@ -20,7 +20,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LANGUAGES, LANG_BY_CODE, PHRASES, type Phrase } from "@/lib/data/languages";
 import { useActivity, useMounted, useStats } from "@/lib/hooks/store";
-import { translate, type TranslationResult } from "@/lib/translate";
+import { translate, type TranslateOptions, type TranslationResult } from "@/lib/translate";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { Badge, Card, Chip, Segmented, Select, Textarea } from "../ui/primitives";
@@ -200,6 +200,14 @@ function LangSelect({ value, onChange, label }: { value: string; onChange: (v: s
 
 /* ------------------------------------------------------------------ */
 
+/** Plain-language line saying where a translation came from. */
+function engineLabel(r: TranslationResult) {
+  if (r.source === "phrasebook") return "From the phrasebook";
+  const names: Record<string, string> = { google: "Google", nllb: "Tembea model", mymemory: "MyMemory (public fallback)" };
+  const parts = (r.engine ?? "").split("+").map((e) => names[e] ?? e).filter(Boolean);
+  return parts.length ? `Live translation · ${parts.join(" + ")}` : "";
+}
+
 function useTranslation(from: string, to: string, onDone: (e: Omit<HistoryEntry, "id" | "at">) => void) {
   const { bump } = useStats();
   const { log } = useActivity();
@@ -207,14 +215,14 @@ function useTranslation(from: string, to: string, onDone: (e: Omit<HistoryEntry,
   const [result, setResult] = useState<TranslationResult | null>(null);
   const reqId = useRef(0);
   const run = useCallback(
-    async (text: string) => {
+    async (text: string, opts?: TranslateOptions) => {
       if (!text.trim()) {
         setResult(null);
         return null;
       }
       const id = ++reqId.current;
       setLoading(true);
-      const r = await translate(text, from, to);
+      const r = await translate(text, from, to, opts);
       logTranslation(from, to, text.length, r.engine ?? r.source);
       if (id !== reqId.current) return null;
       setResult(r);
@@ -241,9 +249,11 @@ function TextMode({ from, to, onDone }: { from: string; to: string; onDone: (e: 
 
   // Debounced real-time translation
   useEffect(() => {
-    const t = setTimeout(() => run(text), 550);
+    // the model service handles one sentence at a time, so wait a little longer before asking it
+    const wait = LANG_BY_CODE[from].api || LANG_BY_CODE[to].api ? 900 : 550;
+    const t = setTimeout(() => run(text), wait);
     return () => clearTimeout(t);
-  }, [text, run]);
+  }, [text, run, from, to]);
 
   useEffect(() => {
     const onLoad = (e: Event) => setText((e as CustomEvent<string>).detail);
@@ -322,7 +332,21 @@ function TextMode({ from, to, onDone }: { from: string; to: string; onDone: (e: 
             ) : (
               <p className="font-display text-xl text-ink-muted/60">{text ? (loading ? "Translating…" : "") : "Translation appears here"}</p>
             )}
+            {result?.text && engineLabel(result) && (
+              <p className="mt-2 text-xs text-ink-muted">
+                {engineLabel(result)}
+                {result.ms ? ` · ${(result.ms / 1000).toFixed(1)} s` : ""}
+              </p>
+            )}
             {result?.note && <p className="mt-3 text-sm text-ink-soft">{result.note}</p>}
+            {result?.source === "phrasebook" && [from, to].every((c) => !LANG_BY_CODE[c].local || LANG_BY_CODE[c].api) && (
+              <button
+                onClick={() => run(text, { skipPhrasebook: true })}
+                className="mt-3 text-sm font-semibold text-savanna-700 underline underline-offset-2"
+              >
+                Try live translation instead
+              </button>
+            )}
             {!!result?.suggestions?.length && (
               <ul className="mt-3 space-y-2">
                 {result.suggestions.map((p) => (

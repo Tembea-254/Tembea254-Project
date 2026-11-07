@@ -54,8 +54,11 @@ async function checkService() {
         headers: { "Content-Type": "application/json", "x-api-key": KEY },
         body: JSON.stringify({ text, from, to }),
       });
-      const d = res.ok ? await res.json() : {};
-      line(res.ok && !!d.text, `${from}->${to}  ${ms} ms  ${res.ok ? JSON.stringify(d.text) : "HTTP " + res.status}`);
+      const d = await res.json().catch(() => ({}));
+      const why = res.ok ? "" : `HTTP ${res.status}: ${d.detail ?? "no detail"}${
+        res.status === 401 ? "  <- the key here differs from NLLB_SERVICE_KEY on the service" :
+        /not set/.test(String(d.detail)) ? "  <- add NLLB_SERVICE_KEY to the service variables and redeploy" : ""}`;
+      line(res.ok && !!d.text, `${from}->${to}  ${ms} ms  ${res.ok ? JSON.stringify(d.text) : why}`);
       if (res.ok) times.push(ms);
     } catch (e) {
       line(false, `${from}->${to} ${e.message}`);

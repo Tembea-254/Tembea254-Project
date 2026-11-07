@@ -37,6 +37,8 @@ async function connect(): Promise<DB> {
   const serverless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
   if (serverless) console.error("[db] DATABASE_URL is not set — using a temporary in-memory database. Connect Neon Postgres in Vercel → Storage.");
   const dir = serverless ? undefined : path.join(process.cwd(), ".data", "pglite");
+  // a fresh clone has no .data folder yet, and PGlite won't create parent folders itself
+  if (dir) (await import("fs")).mkdirSync(path.dirname(dir), { recursive: true });
   const client = new PGlite(dir);
   const db = drizzle(client, { schema });
   await migrate(db, { migrationsFolder: MIGRATIONS });

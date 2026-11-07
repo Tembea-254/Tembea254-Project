@@ -92,7 +92,7 @@ export function Translator({ phrases }: { phrases?: Phrase[] }) {
         <div>
           <p className="eyebrow">Multilingual translator</p>
           <h1 className="text-3xl font-bold sm:text-4xl">Speak like a local</h1>
-          <p className="mt-2 max-w-xl text-ink-soft">Swahili and 12 world languages, plus starter phrases in Kikuyu, Luo, Maa and Kalenjin. Type, talk, or hand your phone over in conversation mode.</p>
+          <p className="mt-2 max-w-xl text-ink-soft">Swahili, Dholuo, Taita and 12 world languages translated live by our own model, plus starter phrases in Kikuyu, Maa and Kalenjin. Type, talk, or hand your phone over in conversation mode.</p>
         </div>
         <Segmented
           value={mode}

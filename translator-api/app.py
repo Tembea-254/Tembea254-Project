@@ -1,5 +1,6 @@
 import contextlib
 import hmac
+import json
 import logging
 import os
 import sys
@@ -38,15 +39,37 @@ def cpu_limit() -> int:
         return os.cpu_count() or 1
 
 # Tembea language code -> NLLB code. Taita borrows the Swahili tag: its adapter was trained that way (and is the
-# only adapter loaded for Taita requests, so it never clashes with real Swahili).
+# only adapter loaded for Taita requests, so it never clashes with real Swahili). Kalenjin is not in NLLB-200 either
+# and borrows the Dholuo tag the same way (training/common.py); an adapter's tembea.json can override any of this.
 NLLB = {
     "en": "eng_Latn", "sw": "swh_Latn", "luo": "luo_Latn", "dav": "swh_Latn",
+    "ki": "kik_Latn", "kam": "kam_Latn", "kln": "luo_Latn",
     "fr": "fra_Latn", "de": "deu_Latn", "es": "spa_Latn", "it": "ita_Latn", "pt": "por_Latn", "nl": "nld_Latn",
     "zh": "zho_Hans", "ja": "jpn_Jpan", "ar": "arb_Arab", "hi": "hin_Deva", "so": "som_Latn",
 }
-ADAPTER_FOR = {"luo": "luo", "dav": "dav"}
-TAG_FOR = {"luo": "news", "dav": "bible"}  # domain tag used in training, put in front of English input
-REQUIRED_ADAPTERS = {"dav"}  # without its adapter Taita would silently come out as plain Swahili
+# Tembea language code -> adapter folder name (models/<name>_lora)
+ADAPTER_FOR = {"luo": "luo", "dav": "dav", "ki": "kik", "kam": "kam", "kln": "kln"}
+TAG_FOR = {"luo": "news", "dav": "bible", "kik": "general", "kam": "bible", "kln": "general"}  # domain tag used in training
+# Without its adapter Taita would come out as plain Swahili and Kalenjin as Dholuo, so those two refuse instead.
+# Kikuyu and Kamba are in NLLB-200 itself: without an adapter they still work, just less well.
+REQUIRED_ADAPTERS = {"dav", "kln"}
+DIRECT_SW: set[str] = set()  # adapters trained on Swahili pairs too: Swahili <-> them needs no English pivot
+
+
+def _apply_meta(name: str, path: str):
+    """Adapters made with training/train_lora.py carry tembea.json: the tag and NLLB code they were trained with."""
+    try:
+        with open(os.path.join(path, "tembea.json"), encoding="utf-8") as f:
+            meta = json.load(f)
+    except (OSError, ValueError):
+        return
+    if meta.get("tag"):
+        TAG_FOR[name] = meta["tag"]
+    code = meta.get("app_code")
+    if code in NLLB and meta.get("nllb_code"):
+        NLLB[code] = meta["nllb_code"]
+    if "sw" in meta.get("pairs", []):
+        DIRECT_SW.add(name)
 
 
 class Engine:
@@ -71,7 +94,7 @@ class Engine:
         self.tok = AutoTokenizer.from_pretrained(BASE_MODEL)
         base = AutoModelForSeq2SeqLM.from_pretrained(BASE_MODEL, torch_dtype=dtype)
         model = base
-        for name in ("luo", "dav"):
+        for name in dict.fromkeys(ADAPTER_FOR.values()):
             path = os.path.join(ADAPTER_DIR, f"{name}_lora")
             if not os.path.isdir(path):
                 log.warning("adapter %s not found at %s", name, path)
@@ -81,8 +104,13 @@ class Engine:
             else:
                 model = PeftModel.from_pretrained(base, path, adapter_name=name)
             self.adapters.append(name)
+            _apply_meta(name, path)
             log.info("loaded adapter %s", name)
         self.model = model.to(self.device).eval()
+
+    def supports(self, code: str) -> bool:
+        adapter = ADAPTER_FOR.get(code)
+        return FAKE or adapter not in REQUIRED_ADAPTERS or adapter in self.adapters
 
     def _leg(self, text: str, src: str, dst: str) -> str:
         if FAKE:
@@ -117,7 +145,8 @@ class Engine:
             return text
         with self.lock:
             local = src in ADAPTER_FOR or dst in ADAPTER_FOR
-            if local and "en" not in (src, dst):  # Dholuo <-> German, Taita <-> Dholuo ...: pivot through English
+            direct = "sw" in (src, dst) and ADAPTER_FOR.get(src if dst == "sw" else dst) in DIRECT_SW
+            if local and "en" not in (src, dst) and not direct:  # Dholuo <-> German, Taita <-> Dholuo ...: via English
                 return self._leg(self._leg(text, src, "en"), "en", dst)
             return self._leg(text, src, dst)
 
@@ -190,7 +219,7 @@ def health():
 def ready():
     if engine is None:
         raise HTTPException(503, load_error or "loading")
-    return {"status": "ready", "adapters": engine.adapters, "fake": FAKE}
+    return {"status": "ready", "adapters": engine.adapters, "languages": [c for c in NLLB if engine.supports(c)], "fake": FAKE}
 
 
 @app.post("/translate")
@@ -202,8 +231,8 @@ def translate(req: Req, x_api_key: str = Header(default="")):
         raise HTTPException(401, "bad key")
     if engine is None:
         raise HTTPException(503, load_error or "loading")
-    if req.from_ not in NLLB or req.to not in NLLB:
-        raise HTTPException(400, "unsupported language")
+    if req.from_ not in NLLB or req.to not in NLLB or not (engine.supports(req.from_) and engine.supports(req.to)):
+        raise HTTPException(400, "unsupported language")  # e.g. Kalenjin before its adapter has been trained
     with inflight_lock:
         if inflight >= MAX_QUEUE:
             raise HTTPException(503, "busy")

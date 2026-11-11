@@ -32,7 +32,10 @@ export async function seedPartners(db: DB) {
     O({ id: "of_jc_cruiser", partnerId: "pt_jambocar", title: "Land Cruiser with driver-guide (up to 6)", kind: "transport", places: ["nairobi", "maasai-mara", "amboseli", "lake-nakuru", "naivasha", "samburu", "mount-kenya", "tsavo-east"], days: 1, tier: "mid", pricePerPerson: 18000, includes: ["Pop-up roof 4x4", "Driver-guide", "Fuel", "Unlimited km"], excludes: ["Park fees for driver", "Driver's meals on long trips"], rating: 4.6, reviews: 119 }),
     O({ id: "of_jc_self", partnerId: "pt_jambocar", title: "Self-drive Toyota Prado", kind: "transport", places: ["nairobi", "mombasa", "diani"], days: 1, tier: "budget", pricePerPerson: 11000, includes: ["Comprehensive insurance", "200 km a day"], excludes: ["Fuel", "Park entry for the car"], rating: 4.2, reviews: 77 }),
   ];
-  for (const o of offers) await db.insert(s.partnerOffers).values({ ...o, url: o.url ?? "/partners" }).onConflictDoNothing();
+  for (const o of offers) await db.insert(s.partnerOffers).values({ ...o, url: o.url ?? "", unit: o.kind === "transport" ? "vehicle/day" : "person" }).onConflictDoNothing();
+  // sample listings book through the Tembea254 request form, not a placeholder page
+  await db.update(s.partnerOffers).set({ url: "" }).where(eq(s.partnerOffers.url, "/partners"));
+  await db.update(s.partnerOffers).set({ unit: "vehicle/day" }).where(eq(s.partnerOffers.kind, "transport"));
 
   const adsRows: (typeof s.ads.$inferInsert)[] = [
     { id: "ad_rr_mara", partnerId: "pt_riftreef", headline: "4 days Mara & Naivasha, private 4x4", body: "From KES 72,000 per person, full board. Sample listing.", image: IMG.maraMigration, cta: "See the package", url: "/partners", placement: "all" },

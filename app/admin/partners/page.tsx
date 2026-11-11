@@ -10,7 +10,7 @@ import { PLACES } from "@/lib/data/places";
 export const metadata = { title: "Partners & ads" };
 export const dynamic = "force-dynamic";
 
-const TABS = ["partners", "packages", "ads", "leads"] as const;
+const TABS = ["partners", "packages", "bookings", "ads", "leads"] as const;
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(1)}%` : "—");
 
 export default async function PartnersAdmin({ searchParams }: { searchParams: { tab?: string; ok?: string; error?: string; edit?: string } }) {
@@ -21,6 +21,7 @@ export default async function PartnersAdmin({ searchParams }: { searchParams: { 
     db.select({ imp: sql<number>`coalesce(sum(${s.ads.impressions}),0)::int`, clicks: sql<number>`coalesce(sum(${s.ads.clicks}),0)::int` }).from(s.ads),
     db.select({ n: sql<number>`count(*)::int` }).from(s.applications).where(sql`${s.applications.kind} = 'partner' and ${s.applications.status} = 'pending'`),
   ]);
+  const openBookings = await db.select({ n: sql<number>`count(*)::int` }).from(s.bookingRequests).where(sql`${s.bookingRequests.status} in ('new','accepted')`);
   const offerClicks = await db.select({ n: sql<number>`coalesce(sum(${s.partnerOffers.clicks}),0)::int` }).from(s.partnerOffers);
   const refs = await db
     .select({ provider: s.referrals.provider, n: sql<number>`count(*)::int` })
@@ -46,6 +47,7 @@ export default async function PartnersAdmin({ searchParams }: { searchParams: { 
         options={[
           { value: "", label: "Partners" },
           { value: "packages", label: "Packages" },
+          { value: "bookings", label: "Booking requests", count: openBookings[0].n },
           { value: "ads", label: "Ads" },
           { value: "leads", label: "Leads", count: leads[0].n },
         ]}
@@ -66,6 +68,7 @@ export default async function PartnersAdmin({ searchParams }: { searchParams: { 
       )}
       {tab === "partners" && <Partners partners={partners} editId={searchParams.edit} />}
       {tab === "packages" && <Packages partners={partners} editId={searchParams.edit} />}
+      {tab === "bookings" && <Bookings partners={partners} />}
       {tab === "ads" && <Ads partners={partners} editId={searchParams.edit} />}
       {tab === "leads" && <Leads />}
     </>
@@ -154,6 +157,12 @@ function Partners({ partners, editId }: { partners: Partner[]; editId?: string }
           </Field>
           <Field label="Phone / WhatsApp">
             <input name="phone" defaultValue={edit?.phone} className={inputCls} />
+          </Field>
+          <Field label="Bookings email" hint="Booking requests are emailed here">
+            <input name="email" type="email" defaultValue={edit?.email} className={inputCls} placeholder="reservations@company.co.ke" />
+          </Field>
+          <Field label="Dashboard login" hint="The Tembea254 account email that opens their partner dashboard">
+            <input name="ownerEmail" type="email" defaultValue={edit?.ownerEmail} className={inputCls} />
           </Field>
           <Field label="One-line description">
             <textarea name="blurb" rows={2} defaultValue={edit?.blurb} className={textareaCls} />
@@ -252,7 +261,7 @@ async function Packages({ partners, editId }: { partners: Partner[]; editId?: st
             </Field>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="KES per person" hint="Transport: per vehicle per day">
+            <Field label="Price (KES)">
               <input name="pricePerPerson" type="number" min={0} required defaultValue={edit?.pricePerPerson} className={inputCls} />
             </Field>
             <Field label="Rating">
@@ -262,6 +271,16 @@ async function Packages({ partners, editId }: { partners: Partner[]; editId?: st
               <input name="reviews" type="number" min={0} defaultValue={edit?.reviews ?? 0} className={inputCls} />
             </Field>
           </div>
+          <Field label="Price is">
+            <select name="unit" defaultValue={edit?.unit ?? "person"} className={inputCls}>
+              <option value="person">Per person</option>
+              <option value="group">Per group</option>
+              <option value="package">Per package</option>
+              <option value="vehicle/day">Per vehicle per day</option>
+              <option value="day">Per day</option>
+              <option value="hour">Per hour</option>
+            </select>
+          </Field>
           <Field label="Places it covers">
             <select name="places" multiple required defaultValue={edit?.places ?? []} className="h-36 w-full rounded-2xl border border-ink/10 bg-white p-2 text-sm">
               {PLACES.map((p) => (
@@ -376,6 +395,32 @@ async function Ads({ partners, editId }: { partners: Partner[]; editId?: string 
         </form>
       </Panel>
     </div>
+  );
+}
+
+async function Bookings({ partners }: { partners: Partner[] }) {
+  const db = await getDb();
+  const rows = await db.select().from(s.bookingRequests).orderBy(desc(s.bookingRequests.createdAt)).limit(200);
+  const name = Object.fromEntries(partners.map((p) => [p.id, p.name]));
+  const booked = rows.filter((r) => r.status === "booked");
+  const owed = booked.reduce((a, r) => a + (r.commissionKes ?? 0), 0);
+  return (
+    <Panel title={`Booking requests · ${booked.length} booked · commission ${kes(owed)}`}>
+      <DataTable
+        rows={rows}
+        rowKey={(r) => r.id}
+        empty="No booking requests yet. They come from the planner's Compare & book."
+        cols={[
+          { label: "Ref", cell: (r) => <span className="font-display font-bold">{r.ref}</span> },
+          { label: "Request", cell: (r) => <span className="block"><span className="block font-medium">{r.title}</span><span className="text-xs text-ink-muted">{name[r.partnerId] ?? r.partnerId} · {r.startDate} · {r.people} people</span></span> },
+          { label: "Traveller", cell: (r) => <span className="block text-xs"><span className="block">{r.name}</span>{r.phone ? `+${r.phone}` : r.email}</span>, hideSm: true },
+          { label: "Value", cell: (r) => (r.bookedKes ? kes(r.bookedKes) : `~${kes(r.estimateKes)}`) },
+          { label: "Commission", cell: (r) => (r.commissionKes ? kes(r.commissionKes) : "—") },
+          { label: "Status", cell: (r) => <StatusBadge status={r.status === "new" ? "pending" : r.status === "booked" ? "paid" : r.status} label={r.status} /> },
+          { label: "Emailed", cell: (r) => (r.emailedAt ? when(r.emailedAt) : "No"), hideSm: true },
+        ]}
+      />
+    </Panel>
   );
 }
 

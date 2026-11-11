@@ -29,6 +29,13 @@
       "when": 1794409998386,
       "tag": "0003_live_offers_referrals",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794412198680,
+      "tag": "0004_booking_requests",
+      "breakpoints": true
     }
   ]
 }

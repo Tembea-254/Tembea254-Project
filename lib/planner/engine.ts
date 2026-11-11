@@ -7,6 +7,7 @@
  */
 import { FOOD_PER_DAY, PARK_FEES, PLACES, PLACE_BY_ID, type ActivitySeed, type Interest, type Place, type Tier } from "../data/places";
 import { HOME_BY_ID } from "./origin";
+import { materializePicks } from "./picks";
 import { addDays, haversineKm, uid, unsplash } from "../utils";
 import type { Day, ExpenseCategory, Item, Leg, PackItem, PlanRequest, Stop, Trip } from "./types";
 import { transportOptions, type TransportMode } from "./transport";
@@ -329,7 +330,7 @@ export function computePlanned(trip: Pick<Trip, "stops" | "days" | "travelers" |
       else if (i.type === "meal") food += i.cost;
       else activities += i.cost;
     }
-  const parks = trip.stops.reduce((s, st) => s + (PARK_FEES[st.placeId] ?? 0) * st.nights * trip.travelers, 0);
+  const parks = trip.stops.reduce((s, st) => s + (st.includedIn ? 0 : (PARK_FEES[st.placeId] ?? 0) * st.nights * trip.travelers), 0);
   return { stay, transport, activities, food, parks, other: Math.round((stay + transport + activities + food + parks) * BUFFER_PCT) };
 }
 
@@ -473,6 +474,6 @@ export function rebuildFromStops(trip: Trip): Trip {
   };
   const legs = legsFor(trip.stops, trip.travelers);
   const days = buildDays(req, trip.stops, legs);
-  const next = { ...trip, days, updatedAt: Date.now() };
+  const next = materializePicks({ ...trip, days, updatedAt: Date.now() });
   return { ...next, planned: computePlanned(next) };
 }

@@ -1,10 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { BedDouble, Check, Coffee, MapPin, ShieldCheck, Sparkles, Star, X } from "lucide-react";
+import { BedDouble, Check, Coffee, ExternalLink, Globe, MapPin, ShieldCheck, Sparkles, Star, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PLACE_BY_ID } from "@/lib/data/places";
-import { staysFor, type Board, type Stay, type StayType } from "@/lib/data/stays";
+import { bookingComUrl, stayWebsite, staysFor, type Board, type Stay, type StayType } from "@/lib/data/stays";
 import type { Stop } from "@/lib/planner/types";
 import { cn, money, unsplash, type Currency } from "@/lib/utils";
 import { Button } from "../ui/button";
@@ -166,6 +166,7 @@ export function StayPicker({
 }
 
 function StayCard({ s, i, ai, selected, nights, rooms, currency, onPick }: { s: Stay; i: number; ai: boolean; selected: boolean; nights: number; rooms: number; currency: Currency; onPick: () => void }) {
+  const placeName = PLACE_BY_ID[s.placeId]?.name ?? "";
   return (
     <motion.article
       initial={{ opacity: 0, y: 14 }}
@@ -226,6 +227,14 @@ function StayCard({ s, i, ai, selected, nights, rooms, currency, onPick }: { s: 
             <Button size="sm" variant={selected ? "soft" : "primary"} onClick={onPick}>
               {selected ? <Check className="h-4 w-4" /> : <BedDouble className="h-4 w-4" />} {selected ? "Selected" : "Choose"}
             </Button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-ink/[0.06] pt-3">
+            <a href={stayWebsite(s, placeName)} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-full bg-ink px-3 font-display text-xs font-semibold text-white">
+              <Globe className="h-3.5 w-3.5" /> {s.website ? "Book on their website" : "Find their website"}
+            </a>
+            <a href={bookingComUrl(s.name, placeName)} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-full border border-ink/15 px-3 font-display text-xs font-semibold">
+              Booking.com <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
         </div>
       </div>

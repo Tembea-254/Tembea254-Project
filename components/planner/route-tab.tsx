@@ -95,6 +95,8 @@ export function RouteTab({
               onHover={() => onFocusPlace(s.placeId)}
               canRemove={order.length > 1}
               travelers={trip.travelers}
+              tripId={trip.id}
+              date={trip.days.find((d) => d.placeId === s.placeId)?.date}
             />
           </div>
         ))}
@@ -146,8 +148,12 @@ function StopRow({
   onHover,
   canRemove,
   travelers,
+  tripId,
+  date,
 }: {
   travelers: number;
+  tripId: string;
+  date?: string;
   stop: Stop;
   index: number;
   currency: Currency;
@@ -241,7 +247,7 @@ function StopRow({
         </button>
         {local && (
           <div className="mt-3">
-            <LocalServices placeId={stop.placeId} travelers={travelers} nights={stop.nights} currency={currency} compact />
+            <LocalServices placeId={stop.placeId} travelers={travelers} nights={stop.nights} currency={currency} compact tripId={tripId} date={date} />
           </div>
         )}
       </Card>

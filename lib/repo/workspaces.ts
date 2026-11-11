@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { getDb, schema as s } from "../db";
 
 export type SellerAccess = "none" | "pending" | "verified" | "suspended" | "rejected";
@@ -7,6 +7,8 @@ export interface WorkspaceAccess {
   seller: SellerAccess;
   creator: CreatorAccess;
   admin: boolean;
+  /** signs in to the B2B partner dashboard (their email is a partner's dashboard login) */
+  partner?: boolean;
   /** admin's note when an application was turned down */
   sellerNote?: string | null;
   creatorNote?: string | null;
@@ -18,11 +20,11 @@ export const NO_ACCESS: WorkspaceAccess = { seller: "none", creator: "none", adm
  * What a user may open in the sidebar. Seller centre and Creator studio only appear
  * after an admin has approved the user's application.
  */
-export async function workspaceAccess(user: { id: string; role?: string } | null | undefined): Promise<WorkspaceAccess> {
+export async function workspaceAccess(user: { id: string; role?: string; email?: string | null } | null | undefined): Promise<WorkspaceAccess> {
   if (!user) return NO_ACCESS;
   try {
     const db = await getDb();
-    const [vendor, creatorApp, legacy] = await Promise.all([
+    const [vendor, creatorApp, legacy, partner] = await Promise.all([
       db.select({ status: s.vendors.status, note: s.vendors.note }).from(s.vendors).where(eq(s.vendors.userId, user.id)).limit(1),
       db
         .select({ status: s.applications.status, note: s.applications.note, kind: s.applications.kind })
@@ -31,6 +33,7 @@ export async function workspaceAccess(user: { id: string; role?: string } | null
         .orderBy(desc(s.applications.createdAt)),
       // creators who already sold videos before applications existed keep their studio
       db.select({ id: s.videoSubmissions.id }).from(s.videoSubmissions).where(eq(s.videoSubmissions.userId, user.id)).limit(1),
+      user.email ? db.select({ id: s.partners.id }).from(s.partners).where(sql`lower(${s.partners.ownerEmail}) = ${user.email.toLowerCase()}`).limit(1) : Promise.resolve([]),
     ]);
     const app = creatorApp.find((a) => a.kind === "creator");
     let creator: CreatorAccess = app ? (app.status as CreatorAccess) : "none";
@@ -40,6 +43,7 @@ export async function workspaceAccess(user: { id: string; role?: string } | null
       seller: v ? (v.status as SellerAccess) : "none",
       creator,
       admin: user.role === "admin",
+      partner: partner.length > 0,
       sellerNote: v?.status === "rejected" && v.note !== "demo" ? v.note : null,
       creatorNote: app?.status === "rejected" ? app.note : null,
     };

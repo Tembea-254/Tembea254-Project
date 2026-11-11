@@ -9,6 +9,10 @@ export interface OfferView {
   days: number;
   tier: string;
   pricePerPerson: number;
+  /** what the price covers: person | group | vehicle/day | hour | day | package */
+  unit: string;
+  /** the partner's own booking page, when they have one */
+  url: string;
   includes: string[];
   excludes: string[];
   rating: number | null;
@@ -33,6 +37,8 @@ export async function activeOffers(): Promise<OfferView[]> {
     days: o.days,
     tier: o.tier,
     pricePerPerson: o.pricePerPerson,
+    unit: o.unit,
+    url: /^https?:\/\//.test(o.url) ? o.url : "",
     includes: o.includes,
     excludes: o.excludes,
     rating: o.rating,

@@ -5,9 +5,9 @@ import { useEffect, useState } from "react";
 import { PLACE_BY_ID } from "@/lib/data/places";
 import type { LiveOffer, LiveResult, SearchLink } from "@/lib/live-offers";
 import type { Trip } from "@/lib/planner/types";
-import type { OfferView } from "@/lib/repo/partners";
+import { groupPrice, SOURCE_LABEL, UNIT_TEXT, type CatalogItem } from "@/lib/catalog-types";
 import { cn, money, type Currency } from "@/lib/utils";
-import { loadOffers } from "./offers-client";
+import { BookingSheet } from "./booking-sheet";
 
 type Live = LiveResult & { links: SearchLink[] };
 const memo = new Map<string, Promise<Live>>();
@@ -137,81 +137,94 @@ export function LivePackages({ trip, currency }: { trip: Trip; currency: Currenc
 
 const CATS = [
   { kind: "transport", label: "Vehicles & transfers", icon: Car },
-  { kind: "guide", label: "Tour guides", icon: UserRound },
+  { kind: "guide", label: "Guides", icon: UserRound },
   { kind: "tour", label: "Day trips & excursions", icon: Compass },
 ] as const;
 
-/** Transport, guides and day trips at one stop: live offers, partner listings and search links, side by side. */
-export function LocalServices({ placeId, travelers, nights, currency, compact }: { placeId: string; travelers: number; nights: number; currency: Currency; compact?: boolean }) {
-  const qs = new URLSearchParams({ type: "local", place: placeId }).toString();
+const fromLive = (o: LiveOffer, i: number): CatalogItem => ({
+  id: `live:${o.placeId ?? ""}:${i}`,
+  source: "web",
+  kind: o.kind === "package" ? "tour" : o.kind,
+  title: o.title,
+  provider: o.provider,
+  places: o.placeId ? [o.placeId] : [],
+  price: o.priceKes,
+  priceText: o.priceText,
+  unit: o.per === "vehicle/day" ? "vehicle/day" : o.per === "group" ? "group" : o.per === "day" ? "day" : "person",
+  includes: o.includes,
+  excludes: [],
+  book: { mode: "external", go: o.go },
+});
+
+/**
+ * Transport, guides and day trips at one stop, side by side: Tembea254 guides and drivers with their
+ * hourly/daily rates, partner vehicles, affiliate tours and offers found online. "Book" opens the
+ * booking form (or the provider's site for online offers); nothing sends the traveller to a dead end.
+ */
+export function LocalServices({ placeId, travelers, nights, currency, compact, tripId, date }: { placeId: string; travelers: number; nights: number; currency: Currency; compact?: boolean; tripId?: string; date?: string }) {
   const [data, setData] = useState<Live | null>(null);
-  const [partners, setPartners] = useState<OfferView[]>([]);
+  const [catalog, setCatalog] = useState<CatalogItem[] | null>(null);
+  const [booking, setBooking] = useState<CatalogItem | null>(null);
   useEffect(() => {
     let on = true;
     setData(null);
-    fetchLive(qs).then((d) => on && setData(d));
-    loadOffers()
-      .then((o) => on && setPartners(o.filter((x) => x.kind === "transport" && x.places.includes(placeId))))
-      .catch(() => {});
+    setCatalog(null);
+    fetchLive(new URLSearchParams({ type: "local", place: placeId }).toString()).then((d) => on && setData(d));
+    fetch(`/api/catalog?places=${placeId}`)
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((d: { items: CatalogItem[] }) => on && setCatalog(d.items.filter((i) => i.source !== "web" && i.kind !== "stay" && i.kind !== "package")))
+      .catch(() => on && setCatalog([]));
     return () => {
       on = false;
     };
-  }, [qs, placeId]);
+  }, [placeId]);
   const name = PLACE_BY_ID[placeId]?.name ?? placeId;
+  const all = [...(catalog ?? []), ...(data?.offers ?? []).filter((o) => o.kind !== "package").map(fromLive)];
+  const qty = (i: CatalogItem) => (i.unit === "vehicle/day" || i.unit === "day" ? Math.max(1, nights) : 1);
 
   return (
     <div className={cn(!compact && "rounded-3xl bg-sand-50 p-4")}>
       {!compact && <h3 className="mb-3 font-display font-bold">Getting around {name}: transport, guides & tours</h3>}
-      {!data ? (
+      {!catalog ? (
         <Searching text={`Finding transport, guides and tours in ${name}…`} />
       ) : (
         <div className={cn("grid gap-3", !compact && "lg:grid-cols-3")}>
           {CATS.map((c) => {
-            const live = data.offers.filter((o) => o.kind === c.kind).sort((a, b) => (a.priceKes ?? 9e9) - (b.priceKes ?? 9e9));
-            const links = data.links.filter((l) => l.kind === c.kind);
-            const partnerCards = c.kind === "transport" ? partners : [];
+            const rows = all.filter((i) => i.kind === c.kind).sort((a, b) => (a.price ?? 9e9) - (b.price ?? 9e9));
+            const links = (data?.links ?? []).filter((l) => l.kind === c.kind);
             return (
               <div key={c.kind} className="min-w-0 rounded-2xl bg-white p-3 shadow-card">
                 <p className="mb-2 flex items-center gap-2 font-display text-sm font-bold">
                   <c.icon className="h-4 w-4 text-savanna-600" /> {c.label}
+                  <span className="text-xs font-normal text-ink-muted">{rows.length ? `${rows.length} to compare` : ""}</span>
                 </p>
                 <ul className="space-y-2">
-                  {partnerCards.map((o) => (
+                  {rows.slice(0, 6).map((o, k) => (
                     <li key={o.id} className="rounded-xl bg-sand-50 p-2.5 text-sm">
                       <div className="flex flex-wrap gap-1">
-                        {o.partner.sponsored && <span className="rounded-full bg-ochre-400 px-1.5 py-0.5 font-display text-[9px] font-bold uppercase">Sponsored</span>}
-                        {o.partner.demo && <span className="rounded-full bg-white px-1.5 py-0.5 font-display text-[9px] font-bold uppercase text-ink-muted">Sample listing</span>}
+                        <span className={cn("rounded-full px-1.5 py-0.5 font-display text-[9px] font-bold uppercase", o.source === "web" ? "bg-dusk-50 text-dusk-500" : o.source === "tembea" ? "bg-savanna-50 text-savanna-700" : "bg-white text-ink-soft")}>{SOURCE_LABEL[o.source]}</span>
+                        {o.sponsored && <span className="rounded-full bg-ochre-400 px-1.5 py-0.5 font-display text-[9px] font-bold uppercase">Sponsored</span>}
+                        {o.demo && <span className="rounded-full bg-white px-1.5 py-0.5 font-display text-[9px] font-bold uppercase text-ink-muted">Sample</span>}
+                        {k === 0 && rows.length > 1 && o.price ? <span className="rounded-full bg-savanna-500 px-1.5 py-0.5 font-display text-[9px] font-bold uppercase text-white">Lowest rate</span> : null}
                       </div>
-                      <p className="mt-1 font-semibold leading-snug">{o.title}</p>
-                      <p className="text-xs text-ink-muted">{o.partner.name}</p>
+                      <p className="mt-1 font-semibold leading-snug">{o.provider}</p>
+                      <p className="text-xs text-ink-muted">
+                        {o.title}
+                        {o.languages?.length ? ` · ${o.languages.join(", ")}` : ""}
+                      </p>
                       <div className="mt-1.5 flex items-center justify-between gap-2">
                         <span className="font-display font-bold">
-                          {money(o.pricePerPerson, currency)}
-                          <span className="text-xs font-normal text-ink-muted">/day · {money(o.pricePerPerson * Math.max(1, nights), currency)} for {Math.max(1, nights)}d</span>
+                          {o.price ? o.priceText ?? money(o.price, currency) : o.priceText ?? "On request"}
+                          <span className="text-xs font-normal text-ink-muted"> {UNIT_TEXT[o.unit] ?? o.unit}</span>
+                          {o.price && qty(o) > 1 && <span className="block text-[11px] font-normal text-ink-muted">{money((groupPrice(o, travelers, qty(o)) ?? 0), currency)} for {qty(o)} days</span>}
                         </span>
-                        <a href={`/api/go?offer=${o.id}`} target="_blank" rel="noreferrer" className="shrink-0 text-xs font-semibold text-savanna-700 underline">
+                        <button onClick={() => setBooking(o)} className="h-8 shrink-0 rounded-full bg-ink px-3 font-display text-xs font-semibold text-white">
                           Book
-                        </a>
+                        </button>
                       </div>
                     </li>
                   ))}
-                  {live.slice(0, 4).map((o, i) => (
-                    <li key={o.url + o.title} className="rounded-xl bg-sand-50 p-2.5 text-sm">
-                      <div className="flex flex-wrap gap-1">
-                        <span className="rounded-full bg-dusk-50 px-1.5 py-0.5 font-display text-[9px] font-bold uppercase text-dusk-500">Live · {domain(o.url)}</span>
-                        {i === 0 && live.length > 1 && o.priceKes && <span className="rounded-full bg-savanna-50 px-1.5 py-0.5 font-display text-[9px] font-bold uppercase text-savanna-700">Lowest price</span>}
-                      </div>
-                      <p className="mt-1 font-semibold leading-snug">{o.title}</p>
-                      <p className="text-xs text-ink-muted">{o.provider}</p>
-                      <div className="mt-1.5 flex items-center justify-between gap-2">
-                        <span className="font-display font-bold">{o.priceText}</span>
-                        <a href={o.go} target="_blank" rel="noreferrer" className="shrink-0 text-xs font-semibold text-savanna-700 underline">
-                          Book
-                        </a>
-                      </div>
-                    </li>
-                  ))}
-                  {!partnerCards.length && !live.length && <li className="text-xs text-ink-muted">{data.status === "live" ? "No priced offers found online yet. Compare here:" : "Compare live prices here:"}</li>}
+                  {!rows.length && <li className="text-xs text-ink-muted">No listed providers here yet. Compare on:</li>}
                 </ul>
                 {links.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5 border-t border-ink/[0.06] pt-2">
@@ -227,8 +240,8 @@ export function LocalServices({ placeId, travelers, nights, currency, compact }:
           })}
         </div>
       )}
-      {data?.fetchedAt && <p className="mt-2 text-[11px] text-ink-muted">Live prices checked {ago(data.fetchedAt)}. Confirm on the provider&apos;s site before paying.</p>}
-      {travelers > 6 && <p className="mt-1 text-[11px] text-ink-muted">For {travelers} people you may need two vehicles.</p>}
+      {data?.fetchedAt && <p className="mt-2 text-[11px] text-ink-muted">Online prices checked {ago(data.fetchedAt)}. Confirm with the provider before paying.</p>}
+      <BookingSheet key={booking?.id ?? "none"} item={booking} open={!!booking} onClose={() => setBooking(null)} tripId={tripId} date={date ?? new Date().toISOString().slice(0, 10)} nights={nights} travelers={travelers} currency={currency} />
     </div>
   );
 }

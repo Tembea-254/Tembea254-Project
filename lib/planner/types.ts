@@ -64,6 +64,29 @@ export interface Stop {
   stayId?: string;
   /** how the traveller arrives at this stop from the previous one (default: recommended option) */
   arriveBy?: TransportMode;
+  /** set when a booked package covers this stop: its stay, meals, activities and park fees are in the package price */
+  includedIn?: string;
+}
+
+/** Something the traveller chose in Compare & book and put into the plan. */
+export interface Pick {
+  /** catalogue id, e.g. "partner:of_rr_mara4" or "hire:mara-d1" */
+  id: string;
+  kind: "package" | "stay" | "transport" | "guide" | "tour";
+  title: string;
+  provider: string;
+  placeId: string;
+  /** places a package covers */
+  places?: string[];
+  /** the day it's on (YYYY-MM-DD); packages start here */
+  date?: string;
+  quantity: number;
+  unit: string;
+  /** total for the group in KES */
+  cost: number;
+  days?: number;
+  /** booking reference once a request was sent */
+  ref?: string;
 }
 
 export type ExpenseCategory = "stay" | "transport" | "activities" | "food" | "parks" | "other";
@@ -109,4 +132,6 @@ export interface Trip {
   source: "engine" | "ai";
   cover: string;
   origin?: Origin;
+  /** choices from Compare & book, re-applied whenever the days are rebuilt */
+  picks?: Pick[];
 }

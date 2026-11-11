@@ -255,6 +255,10 @@ export const partners = pgTable("partners", {
   demo: boolean("demo").notNull().default(false),
   /** Tembea's referral commission on bookings, e.g. 0.08 */
   commission: real("commission").notNull().default(0),
+  /** where booking requests are emailed */
+  email: text("email").notNull().default(""),
+  /** the person who signs in to the partner dashboard (their Tembea254 account email) */
+  ownerEmail: text("owner_email").notNull().default(""),
   active: boolean("active").notNull().default(true),
   createdAt: created(),
 });
@@ -272,6 +276,8 @@ export const partnerOffers = pgTable(
     days: integer("days").notNull().default(1),
     tier: text("tier").notNull().default("mid"), // budget | mid | luxury
     pricePerPerson: integer("price_per_person").notNull(),
+    /** what the price is for: person | group | vehicle/day | hour | day | package */
+    unit: text("unit").notNull().default("person"),
     includes: text("includes").array().notNull().default(sql`'{}'::text[]`),
     excludes: text("excludes").array().notNull().default(sql`'{}'::text[]`),
     url: text("url").notNull().default(""),
@@ -302,6 +308,45 @@ export const ads = pgTable("ads", {
   endsAt: timestamp("ends_at", { withTimezone: true }),
   createdAt: created(),
 });
+
+export type BookingStatus = "new" | "accepted" | "booked" | "declined" | "cancelled";
+
+/**
+ * A traveller's booking request to a B2B partner, sent with a TB-#### reference so the partner can see
+ * it came from Tembea254. The partner confirms it in their dashboard; the commission is worked out then.
+ */
+export const bookingRequests = pgTable(
+  "booking_requests",
+  {
+    id: id(),
+    ref: text("ref").notNull(),
+    userId: text("user_id"),
+    partnerId: text("partner_id").notNull(),
+    offerId: text("offer_id"),
+    title: text("title").notNull(),
+    kind: text("kind").notNull().default("package"),
+    placeId: text("place_id"),
+    tripId: text("trip_id"),
+    startDate: text("start_date").notNull(),
+    endDate: text("end_date"),
+    people: integer("people").notNull().default(1),
+    quantity: integer("quantity").notNull().default(1),
+    estimateKes: integer("estimate_kes").notNull().default(0),
+    name: text("name").notNull(),
+    phone: text("phone").notNull().default(""),
+    email: text("email").notNull().default(""),
+    note: text("note").notNull().default(""),
+    status: text("status").$type<BookingStatus>().notNull().default("new"),
+    /** what the partner says the traveller paid, and Tembea's share of it */
+    bookedKes: integer("booked_kes"),
+    commissionKes: integer("commission_kes"),
+    partnerNote: text("partner_note"),
+    emailedAt: timestamp("emailed_at", { withTimezone: true }),
+    createdAt: created(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("bookings_ref_idx").on(t.ref), index("bookings_partner_idx").on(t.partnerId), index("bookings_user_idx").on(t.userId)],
+);
 
 /** Live prices the AI found on operators' own sites, cached so each search is paid for once a day. */
 export const liveCache = pgTable("live_cache", {

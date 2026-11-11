@@ -32,5 +32,5 @@ export function rankPackages(offers: OfferView[], trip: Pick<Trip, "stops" | "tr
   return list.sort((a, b) => b.score - a.score);
 }
 
-export const bookingUrl = (name: string, place: string) => `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(`${name}, ${place}, Kenya`)}`;
+export { bookingComUrl as bookingUrl } from "../data/stays";
 export const mapsUrl = (name: string, place: string) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${place}, Kenya`)}`;

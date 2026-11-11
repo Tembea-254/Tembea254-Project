@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Check,
   Compass,
+  MessageCircleQuestion,
   Minus,
   Moon,
   Plus,
@@ -21,10 +22,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { INTEREST_LABELS, PLACES, PLACE_BY_ID, type Interest, type Tier } from "@/lib/data/places";
 import { useActivity, useMounted, useProfile, useTrips } from "@/lib/hooks/store";
 import { generateTrip } from "@/lib/planner/engine";
+import { COUNTRIES, HOME_CITIES } from "@/lib/planner/origin";
 import type { Group, PlanRequest, TravelStyle, Trip } from "@/lib/planner/types";
 import { addDays, cn, fmtDate, money, todayISO, unsplash } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { Badge, Card, Chip, Input, Segmented, Textarea } from "../ui/primitives";
+import { PlanChat } from "./plan-chat";
 import { PROMPT_IDEAS, SAMPLE_ROUTES } from "./sample-routes";
 
 const DEFAULT_REQ = (): PlanRequest => ({
@@ -37,6 +40,7 @@ const DEFAULT_REQ = (): PlanRequest => ({
   budget: "mid",
   interests: [],
   places: [],
+  origin: { kind: "abroad" },
 });
 
 const STEPS = ["Reading your trip description", "Mapping the best route across Kenya", "Matching stays to your budget", "Balancing game drives, beaches and rest", "Adding costs, packing list and tips"];
@@ -49,7 +53,7 @@ export function PlannerHome() {
   const [profile] = useProfile();
   const mounted = useMounted();
 
-  const [tab, setTab] = useState<"plan" | "explore">("plan");
+  const [tab, setTab] = useState<"plan" | "ask" | "explore">("plan");
   const [req, setReq] = useState<PlanRequest>(DEFAULT_REQ);
   const [showOptions, setShowOptions] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -140,6 +144,7 @@ export function PlannerHome() {
                 onChange={setTab}
                 options={[
                   { value: "plan", label: <span className="inline-flex items-center gap-1.5"><Wand2 className="h-4 w-4" /> Plan</span> },
+                  { value: "ask", label: <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><MessageCircleQuestion className="h-4 w-4" /> Ask me</span> },
                   { value: "explore", label: <span className="inline-flex items-center gap-1.5"><Compass className="h-4 w-4" /> Explore</span> },
                 ]}
               />
@@ -183,6 +188,8 @@ export function PlannerHome() {
                     )}
                   </AnimatePresence>
                 </div>
+              ) : tab === "ask" ? (
+                <PlanChat base={req} busy={generating} onPlan={(r) => plan(r)} />
               ) : (
                 <div className="grid gap-3 p-2 pt-3 sm:grid-cols-2">
                   {SAMPLE_ROUTES.slice(0, 4).map((r) => (
@@ -306,6 +313,32 @@ function Options({
 }) {
   return (
     <div className="mt-5 space-y-5 border-t border-ink/[0.06] pt-5">
+      <Field label="Travelling from">
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip active={req.origin?.kind !== "kenya"} onClick={() => set("origin", { kind: "abroad", country: req.origin?.country })}>
+            Abroad
+          </Chip>
+          <Chip active={req.origin?.kind === "kenya"} onClick={() => set("origin", { kind: "kenya", city: req.origin?.city ?? "nairobi" })}>
+            Within Kenya
+          </Chip>
+          {req.origin?.kind === "kenya" ? (
+            <select aria-label="Home city" value={req.origin.city ?? "nairobi"} onChange={(e) => set("origin", { kind: "kenya", city: e.target.value })} className="h-11 w-full rounded-2xl border border-ink/10 bg-white px-3 text-sm outline-none focus:border-savanna-500 sm:w-56">
+              {HOME_CITIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select aria-label="Country" value={req.origin?.country ?? ""} onChange={(e) => set("origin", { kind: "abroad", country: e.target.value || undefined })} className="h-11 w-full rounded-2xl border border-ink/10 bg-white px-3 text-sm outline-none focus:border-savanna-500 sm:w-56">
+              <option value="">Choose country…</option>
+              {COUNTRIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      </Field>
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Start date">
           <Input type="date" value={req.startDate} min={todayISO()} onChange={(e) => set("startDate", e.target.value)} />

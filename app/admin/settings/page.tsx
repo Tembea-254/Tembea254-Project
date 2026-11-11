@@ -81,6 +81,25 @@ export default async function SettingsAdmin() {
             </Field>
           </div>
         </Panel>
+        <Panel title="Ads, Pro plan and Scouts">
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr))]">
+            <Field label="Seconds between ads (free)">
+              <input name="adIntervalFreeSec" type="number" min={10} defaultValue={st.adIntervalFreeSec} className={inputCls} />
+            </Field>
+            <Field label="Seconds between ads (Pro)">
+              <input name="adIntervalProSec" type="number" min={10} defaultValue={st.adIntervalProSec} className={inputCls} />
+            </Field>
+            <Field label="Pro price per month (KES)">
+              <input name="proPriceKes" type="number" min={0} defaultValue={st.proPriceKes} className={inputCls} />
+            </Field>
+            <Field label="Scout: jobs held at once">
+              <input name="scoutMaxOpenClaims" type="number" min={1} defaultValue={st.scoutMaxOpenClaims} className={inputCls} />
+            </Field>
+            <Field label="Scout: hours a job is held">
+              <input name="scoutClaimHours" type="number" min={1} defaultValue={st.scoutClaimHours} className={inputCls} />
+            </Field>
+          </div>
+        </Panel>
         <Panel title="Site">
           <Field label="Announcement banner" hint="Shown at the top of the app when filled in. Leave empty to hide.">
             <input name="maintenanceBanner" defaultValue={st.maintenanceBanner} className={inputCls} />

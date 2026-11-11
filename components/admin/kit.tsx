@@ -86,6 +86,10 @@ const STATUS_TONE: Record<string, string> = {
   refunded: "bg-maasai-50 text-maasai-600",
   removed: "bg-maasai-50 text-maasai-600",
   admin: "bg-ink text-white",
+  claimed: "bg-dusk-50 text-dusk-500",
+  paused: "bg-sand-100 text-ink-soft",
+  closed: "bg-sand-100 text-ink-soft",
+  sponsored: "bg-ochre-400 text-ink",
 };
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {

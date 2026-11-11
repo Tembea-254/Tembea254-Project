@@ -12,6 +12,7 @@ import {
   Copy,
   Download,
   FileDown,
+  Link2,
   Loader2,
   MessageCircle,
   FileJson,
@@ -23,6 +24,7 @@ import {
   Share2,
   Ticket,
   Sparkles,
+  Scale,
   Trash2,
   Users,
   Wallet,
@@ -35,6 +37,7 @@ import { cn, fmtDate, money } from "@/lib/utils";
 import { WhatsAppIcon } from "../brand/social-icons";
 import { Button, buttonVariants } from "../ui/button";
 import { Badge, Card, Textarea } from "../ui/primitives";
+import { BookTab } from "./book-tab";
 import { BudgetTab } from "./budget-tab";
 import { DaysTab } from "./days-tab";
 import { downloadICS, downloadJSON, tripAsText } from "./export";
@@ -48,11 +51,12 @@ const RouteMap = dynamic(() => import("./route-map"), {
   loading: () => <div className="skeleton h-full w-full" />,
 });
 
-type TabId = "route" | "days" | "explore" | "budget" | "packing" | "notes";
+type TabId = "route" | "days" | "explore" | "book" | "budget" | "packing" | "notes";
 const TABS: { id: TabId; label: string; icon: typeof Route }[] = [
   { id: "route", label: "Route", icon: Route },
   { id: "days", label: "Days", icon: CalendarDays },
   { id: "explore", label: "Things to do", icon: Ticket },
+  { id: "book", label: "Compare & book", icon: Scale },
   { id: "budget", label: "Budget", icon: Wallet },
   { id: "packing", label: "Packing", icon: Backpack },
   { id: "notes", label: "Notes", icon: NotebookPen },
@@ -81,6 +85,15 @@ export function TripView({ id }: { id: string }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mapOpenMobile, setMapOpenMobile] = useState(false);
+  // Only one map at a time: the side map on desktop, the toggled one on phones.
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -116,14 +129,28 @@ export function TripView({ id }: { id: string }) {
     } catch {
       /* user cancelled */
     }
-    await navigator.clipboard.writeText(text);
-    setToast("Itinerary copied — paste it into WhatsApp or email");
+    const ok = await navigator.clipboard.writeText(text).then(() => true, () => false);
+    setToast(ok ? "Itinerary copied — paste it into WhatsApp or email" : "Couldn't copy. Use Download PDF instead.");
+  }
+
+  /** Saves the trip to the account so its read-only link (/t/id) works, and returns that link. */
+  async function shareLink() {
+    const res = await fetch("/api/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trip }) }).catch(() => null);
+    return res?.ok ? `${window.location.origin}/t/${trip!.id}` : undefined;
+  }
+
+  async function copyShareLink() {
+    const url = await shareLink();
+    if (!url) return setToast("Sign in to get a share link");
+    await navigator.clipboard.writeText(url).catch(() => {});
+    setToast("Link copied: anyone with it can view this itinerary");
   }
 
   async function makePDF() {
     setBusy(true);
     try {
-      const blob = await buildItineraryPDF(trip!, profile.currency);
+      const shareUrl = await shareLink();
+      const blob = await buildItineraryPDF(trip!, profile.currency, { shareUrl });
       return new File([blob], pdfFileName(trip!), { type: "application/pdf" });
     } finally {
       setBusy(false);
@@ -198,9 +225,10 @@ export function TripView({ id }: { id: string }) {
                       {[
                         { icon: FileDown, label: "Download PDF (with photos)", run: downloadPDF },
                         { icon: WhatsAppIcon, label: "Send PDF on WhatsApp", run: shareWhatsApp },
+                        { icon: Link2, label: "Copy share link", run: copyShareLink },
                         { icon: Printer, label: "Print this page", run: () => window.print() },
                         { icon: CalendarDays, label: "Add to calendar (.ics)", run: () => downloadICS(trip) },
-                        { icon: Copy, label: "Copy as text", run: async () => { await navigator.clipboard.writeText(tripAsText(trip)); setToast("Copied to clipboard"); } },
+                        { icon: Copy, label: "Copy as text", run: async () => { const ok = await navigator.clipboard.writeText(tripAsText(trip)).then(() => true, () => false); setToast(ok ? "Copied to clipboard" : "Couldn't copy on this device"); } },
                         { icon: FileJson, label: "Download data (.json)", run: () => downloadJSON(trip) },
                       ].map((o) => (
                         <button
@@ -298,7 +326,7 @@ export function TripView({ id }: { id: string }) {
 
       <div className={cn("container-page grid gap-6 pt-6", showMap && "lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_460px]")}>
         <div className="min-w-0">
-          {showMap && mapOpenMobile && (
+          {showMap && mapOpenMobile && !wide && (
             <div className="mb-6 h-72 overflow-hidden rounded-3xl shadow-card lg:hidden">
               <RouteMap stops={trip.stops} days={trip.days} travelers={trip.travelers} activePlaceId={activePlace} />
             </div>
@@ -317,6 +345,7 @@ export function TripView({ id }: { id: string }) {
             />
           )}
           {tab === "explore" && <ToursExplorer trip={trip} onChange={saveTrip} currency={profile.currency} initialPlace={tourPlace} />}
+          {tab === "book" && <BookTab trip={trip} onChange={saveTrip} currency={profile.currency} />}
           {tab === "budget" && <BudgetTab trip={trip} onChange={saveTrip} currency={profile.currency} />}
           {tab === "packing" && <PackingTab trip={trip} onChange={saveTrip} />}
           {tab === "notes" && <NotesTab trip={trip} onChange={saveTrip} />}
@@ -324,7 +353,7 @@ export function TripView({ id }: { id: string }) {
         {showMap && (
         <aside className="no-print hidden lg:block">
           <div className="sticky top-20 h-[calc(100dvh-7rem)] overflow-hidden rounded-3xl shadow-card">
-            <RouteMap stops={trip.stops} days={trip.days} travelers={trip.travelers} activePlaceId={activePlace} />
+            {wide && <RouteMap stops={trip.stops} days={trip.days} travelers={trip.travelers} activePlaceId={activePlace} />}
           </div>
         </aside>
         )}

@@ -21,6 +21,8 @@ export interface Stay {
   area: string;
   features: string[];
   image: string;
+  /** the property's (or its hotel group's) own website, where travellers can book direct */
+  website?: string;
 }
 
 /**
@@ -92,3 +94,43 @@ export const STAYS: Stay[] = [
 
 export const staysFor = (placeId: string) => STAYS.filter((s) => s.placeId === placeId);
 export const STAY_BY_ID = Object.fromEntries(STAYS.map((s) => [s.id, s])) as Record<string, Stay>;
+
+/**
+ * Official websites for properties whose own (or hotel group's) site we have confirmed.
+ * Properties not listed here get a "Find their website" search plus the Booking.com link.
+ */
+const WEBSITES: Record<string, string> = {
+  "mara-sopa": "https://www.sopalodges.com/masai-mara-sopa-lodge/the-lodge",
+  "mara-ashnil": "https://ashnilhotels.com/mara_camp/",
+  "mara-kichwa": "https://www.andbeyond.com",
+  "mara-angama": "https://angama.com",
+  "amb-tortilis": "https://www.elewanacollection.com",
+  "nak-sopa": "https://www.sopalodges.com",
+  "naiv-sopa": "https://www.sopalodges.com",
+  "naiv-loldia": "https://www.governorscamp.com",
+  "sam-ashnil": "https://ashnilhotels.com",
+  "sam-saruni": "https://www.saruni.com",
+  "mk-sweetwaters": "https://www.serenahotels.com",
+  "mk-fairmont": "https://www.fairmont.com",
+  "nbo-hemingways": "https://www.hemingways-collection.com",
+  "nbo-giraffe-manor": "https://www.giraffemanor.com",
+  "msa-whitesands": "https://www.sarovahotels.com",
+  "msa-serena": "https://www.serenahotels.com",
+  "dia-leopard": "https://www.leopardbeachresort.com",
+  "dia-swahili": "https://www.theswahilibeach.com",
+  "wat-hemingways": "https://www.hemingways-collection.com",
+  "wat-medina": "https://www.medinapalms.com",
+  "lamu-majlis": "https://www.themajlisresorts.com",
+};
+for (const st of STAYS) if (WEBSITES[st.id]) st.website = WEBSITES[st.id];
+
+/** Booking.com search for a property; carries the affiliate id when NEXT_PUBLIC_BOOKING_AID is set. */
+export function bookingComUrl(name: string, place: string) {
+  const aid = process.env.NEXT_PUBLIC_BOOKING_AID;
+  return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(`${name}, ${place}, Kenya`)}${aid ? `&aid=${encodeURIComponent(aid)}` : ""}`;
+}
+
+/** The property's own site, or a web search for it when we haven't confirmed one. */
+export function stayWebsite(s: Stay, place: string) {
+  return s.website ?? `https://www.google.com/search?q=${encodeURIComponent(`${s.name} ${place} Kenya official website`)}`;
+}

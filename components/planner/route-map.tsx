@@ -71,13 +71,34 @@ const traveller = L.divIcon({
 function Fit({ points, focus }: { points: LatLng[]; focus?: LatLng }) {
   const map = useMap();
   useEffect(() => {
-    if (focus) {
-      map.flyTo(focus, Math.max(map.getZoom(), 9), { duration: 0.8 });
-      return;
+    // A map that is hidden (display:none on phones) has no size; moving it divides by zero and
+    // Leaflet throws "Invalid LatLng (NaN, NaN)". Wait until it is visible.
+    const size = map.getSize();
+    if (!size.x || !size.y) return;
+    try {
+      if (focus) {
+        map.flyTo(focus, Math.max(map.getZoom(), 9), { duration: 0.8 });
+        return;
+      }
+      if (points.length === 1) map.setView(points[0], 8);
+      else if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [48, 48] });
+    } catch {
+      /* never let a map animation take the page down */
     }
-    if (points.length === 1) map.setView(points[0], 8);
-    else if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [48, 48] });
   }, [map, points, focus]);
+  // Re-measure when the container is resized or revealed.
+  useEffect(() => {
+    const el = map.getContainer();
+    const ro = new ResizeObserver(() => {
+      try {
+        map.invalidateSize();
+      } catch {
+        /* ignore */
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [map]);
   return null;
 }
 

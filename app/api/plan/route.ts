@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PLACE_BY_ID } from "@/lib/data/places";
 import { finaliseTrip, generateTrip, makeStops, normaliseRequest } from "@/lib/planner/engine";
+import { originLabel } from "@/lib/planner/origin";
 import type { Day, Item, ItemType, PlanRequest } from "@/lib/planner/types";
 import { addDays, uid } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ async function planWithClaude(input: PlanRequest, key: string) {
     .join("\n");
   const system = `You are Tembea254's Kenya trip planner. Build realistic itineraries using ONLY these place ids:\n${placeList}\n\nRules: sensible geographic order (inland circuit before the coast), total nights = days - 1, morning game drives at 06:00–06:30 in parks, realistic travel. Reply with JSON only.`;
   const user = `Traveller request: "${req.prompt}"
+Travelling ${originLabel(req.origin) || "from abroad"}${req.origin?.kind === "kenya" ? " (a Kenyan resident: start the trip from home, no airport arrival or Nairobi stop unless asked, and end back home)" : " (arrives by international flight at JKIA)"}.
 Days: ${req.days}. Start: ${req.startDate}. Travellers: ${req.travelers} (${req.group}). Pace: ${req.style}. Budget: ${req.budget}. Interests: ${req.interests.join(", ") || "any"}. Must include: ${[...req.places, ...req.parsedPlaces].join(", ") || "your choice"}.
 Return: {"title": string, "stops":[{"placeId": string, "nights": number}], "days":[{"placeId": string, "title": string, "items":[{"time":"HH:MM","title": string,"type":"activity"|"meal"|"transport"|"stay"|"note","costPerPersonKES": number,"notes"?: string}]}]}
 Include exactly ${req.days} days (last day = departure).`;

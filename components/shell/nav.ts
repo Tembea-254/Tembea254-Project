@@ -1,4 +1,4 @@
-import { Clapperboard, HandCoins, Headset, Home, Languages, LayoutDashboard, Route, ShieldAlert, ShoppingBag, Store, UserRound, Users, type LucideIcon } from "lucide-react";
+import { Camera, Clapperboard, Handshake, HandCoins, Headset, Home, Languages, LayoutDashboard, Route, ShieldAlert, ShoppingBag, Store, UserRound, Users, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -30,13 +30,14 @@ export interface WorkspaceLink extends NavItem {
  * Workspaces under the main tabs. Seller centre and Creator studio appear only once an
  * admin approves the user's application; while it's in review a muted "In review" link shows.
  */
-export function workspaceLinks(a: { seller: string; creator: string; admin: boolean } | undefined): WorkspaceLink[] {
+export function workspaceLinks(a: { seller: string; creator: string; admin: boolean; partner?: boolean } | undefined): WorkspaceLink[] {
   if (!a) return [];
   const out: WorkspaceLink[] = [];
   if (a.seller === "verified" || a.seller === "suspended") out.push({ href: "/vendor", label: "Seller centre", short: "Sell", icon: Store });
   else if (a.seller === "pending") out.push({ href: "/marketplace/join/seller", label: "Seller centre", short: "Sell", icon: Store, pill: "In review" });
   if (a.creator === "approved" || a.admin) out.push({ href: "/creators", label: "Creator studio", short: "Create", icon: Clapperboard });
   else if (a.creator === "pending") out.push({ href: "/marketplace/join/creator", label: "Creator studio", short: "Create", icon: Clapperboard, pill: "In review" });
+  if (a.partner) out.push({ href: "/partner", label: "Partner dashboard", short: "Partner", icon: Handshake });
   if (a.admin) out.push({ href: "/admin", label: "Admin control centre", short: "Admin", icon: LayoutDashboard, dark: true });
   return out;
 }
@@ -45,3 +46,6 @@ export function workspaceLinks(a: { seller: string; creator: string; admin: bool
 export const EARN_LINK: NavItem = { href: "/marketplace/join", label: "Earn with Tembea", short: "Earn", icon: HandCoins };
 
 export const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(href + "/");
+
+/** The one place to earn: paid recording jobs (Scouts), with a way in to selling or creator applications. */
+export const SCOUTS_LINK: NavItem = { href: "/scouts", label: "Earn with Tembea254", short: "Earn", icon: Camera };

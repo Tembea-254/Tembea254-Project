@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { partnerEnquiry } from "@/app/(marketing)/partners/actions";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll, useSpring, useTransform } from "framer-motion";
 import {
   ArrowRight,
   Backpack,
+  Megaphone,
   Ticket,
   BedDouble,
   Briefcase,
@@ -95,6 +97,7 @@ export function Landing() {
       <Travellers />
       <ClosingCTA />
       <Business />
+      <Advertise />
       <BlogTeaser />
       <FinalCTA />
       <Footer />
@@ -826,6 +829,64 @@ function Business() {
   );
 }
 
+/** Businesses that want to advertise or list with Tembea254 reach the team from the home page. */
+function Advertise() {
+  const params = useSearchParams();
+  const ok = params.get("ok");
+  const error = params.get("error");
+  // after sending, bring the form (and its thank-you note) back into view
+  useEffect(() => {
+    if (ok || error) document.getElementById("advertise")?.scrollIntoView({ block: "center" });
+  }, [ok, error]);
+  const field = "h-12 w-full rounded-2xl border border-ink/10 bg-white px-4 text-sm outline-none focus:border-savanna-500";
+  return (
+    <section id="advertise" className="container-page pb-20 sm:pb-28">
+      <div className="grid gap-8 rounded-[40px] bg-sand-50 p-6 sm:p-10 lg:grid-cols-[1fr_1fr] lg:items-center">
+        <Reveal>
+          <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 font-display text-xs font-semibold shadow-card">
+            <Megaphone className="h-4 w-4 text-ochre-500" /> Advertise with Tembea254
+          </span>
+          <h2 className="mt-4 text-3xl font-bold sm:text-4xl">Put your safaris, stays and rides in front of travellers while they plan</h2>
+          <ul className="mt-5 space-y-2 text-sm text-ink-soft">
+            {["Your packages compared inside every matching AI itinerary", "Sponsored cards across the app, always labelled", "Every traveller we send you is tagged as a Tembea254 referral"].map((x) => (
+              <li key={x} className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-savanna-600" /> {x}
+              </li>
+            ))}
+          </ul>
+          <Link href="/partners" className="mt-6 inline-flex items-center gap-1.5 font-display text-sm font-semibold text-savanna-700">
+            See plans and how it works <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Reveal>
+        <form action={partnerEnquiry} className="grid gap-3 rounded-3xl bg-white p-5 shadow-card sm:grid-cols-2">
+          <input type="hidden" name="back" value="/" />
+          <input name="website_confirm" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
+          <p className="font-display text-lg font-bold sm:col-span-2">Reach out to the team</p>
+          {(ok || error) && <p className={cn("rounded-2xl p-3 text-sm sm:col-span-2", error ? "bg-maasai-50 text-maasai-700" : "bg-savanna-50 text-savanna-700")}>{error || ok}</p>}
+          <input name="company" required placeholder="Business name" className={cn(field, "sm:col-span-2")} />
+          <input name="name" placeholder="Your name" className={field} />
+          <input name="phone" inputMode="tel" placeholder="Phone / WhatsApp" className={field} />
+          <input name="email" type="email" placeholder="Email" className={field} />
+          <select name="kind" defaultValue="operator" className={field} aria-label="Type of business">
+            <option value="operator">Tour operator / agency</option>
+            <option value="stay">Hotel, lodge or camp</option>
+            <option value="transport">Car hire / transfers</option>
+          </select>
+          <select name="interest" defaultValue="Ads" className={cn(field, "sm:col-span-2")} aria-label="Interested in">
+            <option>Ads</option>
+            <option>Featured placement</option>
+            <option>Free listing</option>
+            <option>360° tour of my property</option>
+          </select>
+          <button type="submit" className="h-12 rounded-full bg-savanna-500 font-display font-semibold text-white sm:col-span-2">
+            Send, we&apos;ll call you
+          </button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
 function FinalCTA() {
   const { openLogin } = useLoginGate();
   return (
@@ -866,9 +927,9 @@ export function Footer() {
   const cols: { title: string; links: [string, string][] }[] = [
     { title: "Features", links: [["AI trip planner", "/planner"], ["360° previews", "/vr"], ["Translator", "/translator"], ["Community", "/community"], ["Marketplace", "/marketplace"]] },
     { title: "Discover", links: VR_DESTINATIONS.slice(0, 6).map((d) => [d.name, `/vr/${d.slug}`] as [string, string]) },
-    { title: "Company", links: [["Blog", "/blog"], ["For business", "/#business"], ["What clients say", "/#reviews"]] },
+    { title: "Company", links: [["Blog", "/blog"], ["Advertise with us", "/partners"], ["Tembea Scouts: earn filming", "/scouts"], ["For business", "/#business"], ["What clients say", "/#reviews"]] },
   ];
-  const isPublic = (h: string) => h.startsWith("/blog") || h.startsWith("/#");
+  const isPublic = (h: string) => h.startsWith("/blog") || h.startsWith("/#") || h.startsWith("/partners");
   return (
     <footer className="bg-ink pb-10 pt-16 text-white">
       <div className="container-page grid gap-10 md:grid-cols-2 lg:grid-cols-[1.5fr_repeat(3,1fr)]">

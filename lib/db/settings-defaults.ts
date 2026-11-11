@@ -26,6 +26,15 @@ export const DEFAULT_SETTINGS = {
   /** what one token is worth when redeemed as a discount */
   tokenValueKes: 1,
   plannerFreeCredits: 5,
+  /** seconds between sponsored cards: free plan and Pro plan */
+  adIntervalFreeSec: 20,
+  adIntervalProSec: 3600,
+  /** Pro subscription price per month */
+  proPriceKes: 499,
+  /** a scout can hold this many claimed (not yet submitted) gigs at once */
+  scoutMaxOpenClaims: 2,
+  /** hours a claimed gig stays reserved before it is released to others */
+  scoutClaimHours: 72,
   maintenanceBanner: "",
 };
 

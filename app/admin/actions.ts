@@ -35,6 +35,16 @@ export async function setUserRole(f: FormData) {
   done("/admin/users");
 }
 
+export async function setUserPlan(f: FormData) {
+  const me = await requireAdmin();
+  const id = str(f, "id");
+  const plan = str(f, "plan") === "pro" ? "pro" : "free";
+  const db = await getDb();
+  await db.update(s.users).set({ plan }).where(eq(s.users.id, id));
+  await audit(me, `user.plan.${plan}`, id);
+  done("/admin/users");
+}
+
 export async function setUserStatus(f: FormData) {
   const me = await requireAdmin();
   const id = str(f, "id");
@@ -446,6 +456,11 @@ export async function decidePayout(f: FormData) {
     .update(s.payouts)
     .set({ status, reference: str(f, "reference", 80) || null, note: str(f, "note", 300) || null, processedAt: status === "approved" ? null : new Date() })
     .where(eq(s.payouts.id, id));
+  // a Scout job paid out moves to "Paid" on the scout's dashboard
+  if (status === "paid") {
+    const paidClaims = await db.update(s.gigClaims).set({ status: "paid" }).where(eq(s.gigClaims.payoutId, id)).returning({ userId: s.gigClaims.userId });
+    for (const c of paidClaims) await notify(c.userId, "scout", "Your Scout payment has been sent to M-Pesa.", "/scouts?tab=earnings");
+  }
   await audit(me, `payout.${status}`, id, { reference: str(f, "reference") });
   done("/admin/payments");
 }
@@ -674,6 +689,11 @@ export async function saveSettingsForm(f: FormData) {
     tokenValueKes: Math.max(0, num(f, "tokenValueKes")),
     plannerFreeCredits: Math.max(0, Math.round(num(f, "plannerFreeCredits"))),
     maintenanceBanner: str(f, "maintenanceBanner", 300),
+    adIntervalFreeSec: Math.max(10, Math.round(num(f, "adIntervalFreeSec"))),
+    adIntervalProSec: Math.max(10, Math.round(num(f, "adIntervalProSec"))),
+    proPriceKes: Math.max(0, Math.round(num(f, "proPriceKes"))),
+    scoutMaxOpenClaims: Math.max(1, Math.round(num(f, "scoutMaxOpenClaims"))),
+    scoutClaimHours: Math.max(1, Math.round(num(f, "scoutClaimHours"))),
   };
   await saveSettings(patch);
   await audit(me, "settings.save", undefined, patch as Record<string, unknown>);

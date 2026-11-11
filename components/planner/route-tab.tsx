@@ -2,13 +2,13 @@
 
 import { Reorder, useDragControls } from "framer-motion";
 import Link from "next/link";
-import { BedDouble,
-  ChevronRight, GripVertical, Minus, Orbit, Plus, Sparkles, X } from "lucide-react";
+import { BedDouble, Car, ChevronRight, GripVertical, Minus, Orbit, Plus, Sparkles, X } from "lucide-react";
 import { placeMedia } from "@/lib/data/place-media";
 import { useEffect, useState } from "react";
 import { PLACES, PLACE_BY_ID } from "@/lib/data/places";
 import type { Stay } from "@/lib/data/stays";
 import type { TransportMode } from "@/lib/planner/transport";
+import { LocalServices } from "./live-offers";
 import { StayPicker } from "./stay-picker";
 import { TransportPicker } from "./transport-picker";
 import { rebuildFromStops } from "@/lib/planner/engine";
@@ -94,6 +94,9 @@ export function RouteTab({
               onRemove={() => remove(s.id)}
               onHover={() => onFocusPlace(s.placeId)}
               canRemove={order.length > 1}
+              travelers={trip.travelers}
+              tripId={trip.id}
+              date={trip.days.find((d) => d.placeId === s.placeId)?.date}
             />
           </div>
         ))}
@@ -144,7 +147,13 @@ function StopRow({
   onRemove,
   onHover,
   canRemove,
+  travelers,
+  tripId,
+  date,
 }: {
+  travelers: number;
+  tripId: string;
+  date?: string;
   stop: Stop;
   index: number;
   currency: Currency;
@@ -157,6 +166,7 @@ function StopRow({
 }) {
   const controls = useDragControls();
   const p = PLACE_BY_ID[stop.placeId];
+  const [local, setLocal] = useState(false);
   return (
     <Reorder.Item value={stop} dragListener={false} dragControls={controls} onDragEnd={onDragEnd} className="relative" onMouseEnter={onHover}>
       <Card className="p-3">
@@ -225,6 +235,21 @@ function StopRow({
           </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted" />
         </button>
+        <button onClick={() => setLocal((v) => !v)} aria-expanded={local} className="mt-2 flex w-full items-center gap-3 rounded-2xl border border-ink/10 bg-white p-2.5 text-left hover:border-savanna-400">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-sand-50 text-savanna-600">
+            <Car className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-sm font-semibold">Transport, guides & tours in {p.name}</span>
+            <span className="block text-[11px] text-ink-muted">Compare local providers and book ahead</span>
+          </span>
+          <ChevronRight className={`h-4 w-4 shrink-0 text-ink-muted transition-transform ${local ? "rotate-90" : ""}`} />
+        </button>
+        {local && (
+          <div className="mt-3">
+            <LocalServices placeId={stop.placeId} travelers={travelers} nights={stop.nights} currency={currency} compact tripId={tripId} date={date} />
+          </div>
+        )}
       </Card>
     </Reorder.Item>
   );

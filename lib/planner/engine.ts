@@ -283,6 +283,12 @@ function buildDays(req: PlanRequest, stops: Stop[], legs: Leg[]): Day[] {
 /* Budget & packing                                                    */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Prices change between planning and paying (fuel, season, exchange rates). Rather than inflate
+ * individual prices, the plan adds one visible buffer line so the traveller isn't caught short.
+ */
+export const BUFFER_PCT = 0.1;
+
 export function computePlanned(trip: Pick<Trip, "stops" | "days" | "travelers" | "budget">): Record<ExpenseCategory, number> {
   const rooms = Math.max(1, Math.ceil(trip.travelers / 2));
   const stay = trip.stops.reduce((s, st) => s + st.stayPerNight * st.nights * rooms, 0);
@@ -296,7 +302,7 @@ export function computePlanned(trip: Pick<Trip, "stops" | "days" | "travelers" |
       else activities += i.cost;
     }
   const parks = trip.stops.reduce((s, st) => s + (PARK_FEES[st.placeId] ?? 0) * st.nights * trip.travelers, 0);
-  return { stay, transport, activities, food, parks, other: Math.round((stay + transport) * 0.05) };
+  return { stay, transport, activities, food, parks, other: Math.round((stay + transport + activities + food + parks) * BUFFER_PCT) };
 }
 
 export function buildPacking(placeIds: string[], group: PlanRequest["group"]): PackItem[] {

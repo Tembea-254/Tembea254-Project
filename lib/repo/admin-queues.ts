@@ -6,7 +6,7 @@ const count = sql<number>`count(*)::int`;
 /** Things waiting for an admin, shown as badges in the admin menu. */
 export async function adminQueues() {
   const db = await getDb();
-  const [vendors, products, subs, live, reviews, reports, payouts, apps, orders, creatorApps] = await Promise.all([
+  const [vendors, products, subs, live, reviews, reports, payouts, apps, orders, creatorApps, scoutWork, partnerLeads] = await Promise.all([
     db.select({ n: count }).from(s.vendors).where(eq(s.vendors.status, "pending")),
     db.select({ n: count }).from(s.products).where(eq(s.products.status, "pending")),
     db.select({ n: count }).from(s.videoSubmissions).where(inArray(s.videoSubmissions.status, ["submitted", "in_review"])),
@@ -17,6 +17,8 @@ export async function adminQueues() {
     db.select({ n: count }).from(s.applications).where(and(eq(s.applications.status, "pending"), eq(s.applications.kind, "provider"))),
     db.select({ n: count }).from(s.orders).where(eq(s.orders.status, "paid")),
     db.select({ n: count }).from(s.applications).where(and(eq(s.applications.status, "pending"), eq(s.applications.kind, "creator"))),
+    db.select({ n: count }).from(s.gigClaims).where(eq(s.gigClaims.status, "submitted")),
+    db.select({ n: count }).from(s.applications).where(and(eq(s.applications.status, "pending"), eq(s.applications.kind, "partner"))),
   ]);
   return {
     vendors: vendors[0].n,
@@ -29,5 +31,7 @@ export async function adminQueues() {
     providerApps: apps[0].n,
     ordersToShip: orders[0].n,
     creatorApps: creatorApps[0].n,
+    scoutWork: scoutWork[0].n,
+    partnerLeads: partnerLeads[0].n,
   };
 }

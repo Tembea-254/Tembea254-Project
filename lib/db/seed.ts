@@ -9,10 +9,11 @@ import type { DB } from "./index";
 import * as s from "./schema";
 import { seedMarket } from "./seed-market";
 import { seedSocial } from "./seed-social";
+import { seedPartners } from "./seed-partners";
 import { DEFAULT_SETTINGS } from "./settings-defaults";
 
 /** Bump when the seed data changes; the seed runs once per version. */
-const SEED_VERSION = 3;
+const SEED_VERSION = 4;
 
 /**
  * Fills a new database with Tembea's built-in content (VR destinations, blog, phrasebook,
@@ -133,6 +134,7 @@ export async function seed(db: DB) {
 
   await seedMarket(db);
   await seedSocial(db);
+  await seedPartners(db);
   await importLegacyUsers(db);
 
   await db

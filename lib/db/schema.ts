@@ -17,6 +17,7 @@ const updated = () => timestamp("updated_at", { withTimezone: true }).notNull().
 
 export type Role = "user" | "admin";
 export type UserStatus = "active" | "suspended";
+export type UserPlan = "free" | "pro";
 
 export const users = pgTable(
   "users",
@@ -35,6 +36,8 @@ export const users = pgTable(
     tokens: integer("tokens").notNull().default(0),
     /** AI planner / premium credits — for the upcoming paid plans */
     credits: integer("credits").notNull().default(5),
+    /** subscription: free (ads every ~20 s) | pro (ads every ~5 min, unlimited planner) */
+    plan: text("plan").$type<UserPlan>().notNull().default("free"),
     /** public profile: @handle and a short bio (community) */
     handle: text("handle"),
     bio: text("bio").notNull().default(""),
@@ -155,6 +158,148 @@ export const liveSessions = pgTable("live_sessions", {
   notes: text("notes").notNull().default(""),
   status: text("status").$type<LiveStatus>().notNull().default("proposed"),
   rewardTokens: integer("reward_tokens").notNull().default(0),
+  createdAt: created(),
+});
+
+/* ------------------------------------------------------------------ */
+/* Tembea Scouts: paid recording jobs for young creators                */
+/* ------------------------------------------------------------------ */
+
+/** A scout's profile, filled in once during onboarding. */
+export const scoutProfiles = pgTable("scout_profiles", {
+  userId: text("user_id").primaryKey(),
+  phone: text("phone").notNull(),
+  county: text("county").notNull().default(""),
+  device: text("device").notNull().default("phone"), // phone | 360 | drone | action
+  /** where they can travel to film (county or place names) */
+  areas: text("areas").array().notNull().default(sql`'{}'::text[]`),
+  agreedAt: timestamp("agreed_at", { withTimezone: true }).notNull().defaultNow(),
+  status: text("status").notNull().default("active"), // active | paused | banned
+  createdAt: created(),
+});
+
+export type GigKind = "record" | "record360" | "live" | "photos";
+export type GigStatus = "open" | "paused" | "closed";
+
+/** A paid job on the Scouts board: "Record 30 min of 360° at the Mara - earn KES 500". */
+export const gigs = pgTable(
+  "gigs",
+  {
+    id: id(),
+    title: text("title").notNull(),
+    kind: text("kind").$type<GigKind>().notNull().default("record"),
+    /** VR destination slug or planner place id */
+    destination: text("destination").notNull(),
+    spot: text("spot").notNull().default(""),
+    brief: text("brief").notNull().default(""),
+    /** checklist the review is done against */
+    requirements: text("requirements").array().notNull().default(sql`'{}'::text[]`),
+    minMinutes: integer("min_minutes").notNull().default(10),
+    payKes: integer("pay_kes").notNull().default(0),
+    rewardTokens: integer("reward_tokens").notNull().default(0),
+    /** how many scouts can be paid for it */
+    slots: integer("slots").notNull().default(1),
+    /** live gigs: when the session happens */
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    deadline: timestamp("deadline", { withTimezone: true }),
+    status: text("status").$type<GigStatus>().notNull().default("open"),
+    cover: text("cover"),
+    createdBy: text("created_by"),
+    createdAt: created(),
+  },
+  (t) => [index("gigs_status_idx").on(t.status)],
+);
+
+export type ClaimStatus = "claimed" | "submitted" | "approved" | "rejected" | "paid" | "dropped";
+
+/** A scout taking a gig, then their submission and the review. */
+export const gigClaims = pgTable(
+  "gig_claims",
+  {
+    id: id(),
+    gigId: text("gig_id").notNull(),
+    userId: text("user_id").notNull(),
+    status: text("status").$type<ClaimStatus>().notNull().default("claimed"),
+    videoUrl: text("video_url"),
+    durationSec: integer("duration_sec"),
+    /** recorded in the app (true) or uploaded from the gallery */
+    inApp: boolean("in_app").notNull().default(false),
+    note: text("note").notNull().default(""),
+    reviewerNote: text("reviewer_note"),
+    reviewedBy: text("reviewed_by"),
+    payoutId: text("payout_id"),
+    claimedAt: created(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  },
+  (t) => [index("claims_gig_idx").on(t.gigId), index("claims_user_idx").on(t.userId), index("claims_status_idx").on(t.status)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Partners: tour operators, stays and transport that list and advertise */
+/* ------------------------------------------------------------------ */
+
+export type PartnerKind = "operator" | "stay" | "transport";
+
+export const partners = pgTable("partners", {
+  id: id(),
+  name: text("name").notNull(),
+  kind: text("kind").$type<PartnerKind>().notNull().default("operator"),
+  website: text("website").notNull().default(""),
+  logo: text("logo"),
+  blurb: text("blurb").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  /** paid placement: shown first in comparisons, always labelled "Sponsored" */
+  sponsored: boolean("sponsored").notNull().default(false),
+  /** sample data for demos: labelled "Sample listing" in the app */
+  demo: boolean("demo").notNull().default(false),
+  /** Tembea's referral commission on bookings, e.g. 0.08 */
+  commission: real("commission").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdAt: created(),
+});
+
+/** A package, stay or transfer a partner sells. Prices are per person in KES. */
+export const partnerOffers = pgTable(
+  "partner_offers",
+  {
+    id: id(),
+    partnerId: text("partner_id").notNull(),
+    title: text("title").notNull(),
+    kind: text("kind").$type<PartnerKind>().notNull().default("operator"),
+    /** planner place ids the offer covers */
+    places: text("places").array().notNull().default(sql`'{}'::text[]`),
+    days: integer("days").notNull().default(1),
+    tier: text("tier").notNull().default("mid"), // budget | mid | luxury
+    pricePerPerson: integer("price_per_person").notNull(),
+    includes: text("includes").array().notNull().default(sql`'{}'::text[]`),
+    excludes: text("excludes").array().notNull().default(sql`'{}'::text[]`),
+    url: text("url").notNull().default(""),
+    rating: real("rating"),
+    reviews: integer("reviews").notNull().default(0),
+    active: boolean("active").notNull().default(true),
+    clicks: integer("clicks").notNull().default(0),
+    createdAt: created(),
+  },
+  (t) => [index("offers_partner_idx").on(t.partnerId)],
+);
+
+/** Sponsored creatives shown between screens. Free users see them every ~20 s, Pro every ~5 min. */
+export const ads = pgTable("ads", {
+  id: id(),
+  partnerId: text("partner_id"),
+  headline: text("headline").notNull(),
+  body: text("body").notNull().default(""),
+  image: text("image"),
+  cta: text("cta").notNull().default("Learn more"),
+  url: text("url").notNull(),
+  /** where it may show: all | planner | vr | translator | community | marketplace */
+  placement: text("placement").notNull().default("all"),
+  active: boolean("active").notNull().default(true),
+  impressions: integer("impressions").notNull().default(0),
+  clicks: integer("clicks").notNull().default(0),
+  startsAt: timestamp("starts_at", { withTimezone: true }),
+  endsAt: timestamp("ends_at", { withTimezone: true }),
   createdAt: created(),
 });
 

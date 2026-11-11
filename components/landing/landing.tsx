@@ -866,9 +866,9 @@ export function Footer() {
   const cols: { title: string; links: [string, string][] }[] = [
     { title: "Features", links: [["AI trip planner", "/planner"], ["360° previews", "/vr"], ["Translator", "/translator"], ["Community", "/community"], ["Marketplace", "/marketplace"]] },
     { title: "Discover", links: VR_DESTINATIONS.slice(0, 6).map((d) => [d.name, `/vr/${d.slug}`] as [string, string]) },
-    { title: "Company", links: [["Blog", "/blog"], ["For business", "/#business"], ["What clients say", "/#reviews"]] },
+    { title: "Company", links: [["Blog", "/blog"], ["Advertise with us", "/partners"], ["Tembea Scouts: earn filming", "/scouts"], ["For business", "/#business"], ["What clients say", "/#reviews"]] },
   ];
-  const isPublic = (h: string) => h.startsWith("/blog") || h.startsWith("/#");
+  const isPublic = (h: string) => h.startsWith("/blog") || h.startsWith("/#") || h.startsWith("/partners");
   return (
     <footer className="bg-ink pb-10 pt-16 text-white">
       <div className="container-page grid gap-10 md:grid-cols-2 lg:grid-cols-[1.5fr_repeat(3,1fr)]">

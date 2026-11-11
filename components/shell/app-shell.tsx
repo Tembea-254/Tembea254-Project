@@ -11,7 +11,8 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useMounted, useProfile } from "@/lib/hooks/store";
 import { Logo } from "./logo";
-import { EARN_LINK, NAV, isActive, workspaceLinks } from "./nav";
+import { AdSlot } from "../ads/ad-slot";
+import { EARN_LINK, NAV, SCOUTS_LINK, isActive, workspaceLinks } from "./nav";
 import type { WorkspaceAccess } from "@/lib/repo/workspaces";
 
 export function AppShell({ children, access }: { children: React.ReactNode; access?: WorkspaceAccess }) {
@@ -25,6 +26,7 @@ export function AppShell({ children, access }: { children: React.ReactNode; acce
       <MobileTopBar access={access} />
       <main className="pb-28 lg:pb-12">{children}</main>
       <MobileNav pathname={pathname} />
+      <AdSlot />
     </div>
   );
 }
@@ -111,6 +113,15 @@ function Workspaces({ pathname, access }: { pathname: string; access?: Workspace
           </Link>
         );
       })}
+      <Link
+        href={SCOUTS_LINK.href}
+        className={cn("flex items-center gap-3 rounded-2xl px-3 py-2 font-display text-[14px] font-medium", isActive(pathname, SCOUTS_LINK.href) ? "bg-savanna-50 text-ink" : "text-ink-muted hover:bg-sand-50 hover:text-ink")}
+      >
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-savanna-50 text-savanna-700">
+          <SCOUTS_LINK.icon className="h-[17px] w-[17px]" />
+        </span>
+        <span className="min-w-0 flex-1 truncate">{SCOUTS_LINK.label}</span>
+      </Link>
       {canApply ? (
         <Link
           href={EARN_LINK.href}
@@ -184,7 +195,7 @@ function MobileMore({ access }: { access?: WorkspaceAccess }) {
     setOpen(false);
   }, [pathname]);
   const ws = workspaceLinks(access);
-  const more = [...NAV.filter((n) => ["/translator", "/safety", "/profile"].includes(n.href)), ...ws, ...(access && ws.filter((w) => !w.dark).length < 2 ? [EARN_LINK] : [])];
+  const more = [...NAV.filter((n) => ["/translator", "/safety", "/profile"].includes(n.href)), ...ws, ...(access ? [SCOUTS_LINK] : []), ...(access && ws.filter((w) => !w.dark).length < 2 ? [EARN_LINK] : [])];
   return (
     <div className="relative">
       <button onClick={() => setOpen((o) => !o)} className="grid h-9 w-9 place-items-center rounded-full border border-ink/10" aria-label="More pages" aria-expanded={open}>

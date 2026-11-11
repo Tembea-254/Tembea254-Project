@@ -23,8 +23,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     "/admin/community": q.reports,
     "/admin/payments": q.payouts,
     "/admin/marketplace": q.providerApps,
+    "/admin/scouts": q.scoutWork,
+    "/admin/partners": q.partnerLeads,
   };
-  const waiting = approvals + q.reviews + q.reports + q.payouts;
+  const waiting = approvals + q.reviews + q.reports + q.payouts + q.scoutWork + q.partnerLeads;
   return (
     <div className="min-h-dvh bg-sand-50 lg:pl-[264px]">
       <AdminSidebar badges={badges} name={me.name} email={me.email} />

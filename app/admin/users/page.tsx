@@ -1,5 +1,5 @@
 import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
-import { setUserRole, setUserStatus, adjustUserTokens } from "../actions";
+import { setUserRole, setUserStatus, adjustUserTokens, setUserPlan } from "../actions";
 import { Submit } from "@/components/admin/client";
 import { DataTable, FilterTabs, PageHeader, SearchBox, StatusBadge, day, inputCls } from "@/components/admin/kit";
 import { getDb, schema as s } from "@/lib/db";
@@ -61,6 +61,7 @@ export default async function UsersPage({ searchParams }: { searchParams: { q?: 
                 <StatusBadge status={u.role === "admin" ? "admin" : "visible"} label={u.role === "admin" ? "Admin" : "Traveller"} />
                 {vendor && <StatusBadge status={vendor} label={`Vendor · ${vendor}`} />}
                 {u.status === "suspended" && <StatusBadge status="suspended" />}
+                {u.plan === "pro" && <StatusBadge status="sponsored" label="Pro" />}
               </span>
             ),
           },
@@ -71,6 +72,11 @@ export default async function UsersPage({ searchParams }: { searchParams: { q?: 
             label: "Actions",
             cell: ({ u }) => (
               <div className="flex flex-wrap justify-end gap-1.5 md:justify-start">
+                <form action={setUserPlan}>
+                  <input type="hidden" name="id" value={u.id} />
+                  <input type="hidden" name="plan" value={u.plan === "pro" ? "free" : "pro"} />
+                  <Submit small tone="soft">{u.plan === "pro" ? "Set Free" : "Give Pro"}</Submit>
+                </form>
                 <form action={setUserRole}>
                   <input type="hidden" name="id" value={u.id} />
                   <Submit small tone={u.role === "admin" ? "outline" : "dark"} name="role" value={u.role === "admin" ? "user" : "admin"} confirm={u.role === "admin" ? `Remove admin from ${u.email}?` : `Make ${u.email} an admin? They will be able to manage everything.`}>

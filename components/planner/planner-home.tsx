@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Check,
   Compass,
+  MessageCircleQuestion,
   Minus,
   Moon,
   Plus,
@@ -25,6 +26,7 @@ import type { Group, PlanRequest, TravelStyle, Trip } from "@/lib/planner/types"
 import { addDays, cn, fmtDate, money, todayISO, unsplash } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { Badge, Card, Chip, Input, Segmented, Textarea } from "../ui/primitives";
+import { PlanChat } from "./plan-chat";
 import { PROMPT_IDEAS, SAMPLE_ROUTES } from "./sample-routes";
 
 const DEFAULT_REQ = (): PlanRequest => ({
@@ -49,7 +51,7 @@ export function PlannerHome() {
   const [profile] = useProfile();
   const mounted = useMounted();
 
-  const [tab, setTab] = useState<"plan" | "explore">("plan");
+  const [tab, setTab] = useState<"plan" | "ask" | "explore">("plan");
   const [req, setReq] = useState<PlanRequest>(DEFAULT_REQ);
   const [showOptions, setShowOptions] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -140,6 +142,7 @@ export function PlannerHome() {
                 onChange={setTab}
                 options={[
                   { value: "plan", label: <span className="inline-flex items-center gap-1.5"><Wand2 className="h-4 w-4" /> Plan</span> },
+                  { value: "ask", label: <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><MessageCircleQuestion className="h-4 w-4" /> Ask me</span> },
                   { value: "explore", label: <span className="inline-flex items-center gap-1.5"><Compass className="h-4 w-4" /> Explore</span> },
                 ]}
               />
@@ -183,6 +186,8 @@ export function PlannerHome() {
                     )}
                   </AnimatePresence>
                 </div>
+              ) : tab === "ask" ? (
+                <PlanChat base={req} busy={generating} onPlan={(r) => plan(r)} />
               ) : (
                 <div className="grid gap-3 p-2 pt-3 sm:grid-cols-2">
                   {SAMPLE_ROUTES.slice(0, 4).map((r) => (

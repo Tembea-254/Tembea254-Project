@@ -12,6 +12,7 @@ import {
   Copy,
   Download,
   FileDown,
+  Link2,
   Loader2,
   MessageCircle,
   FileJson,
@@ -23,6 +24,7 @@ import {
   Share2,
   Ticket,
   Sparkles,
+  Scale,
   Trash2,
   Users,
   Wallet,
@@ -35,6 +37,7 @@ import { cn, fmtDate, money } from "@/lib/utils";
 import { WhatsAppIcon } from "../brand/social-icons";
 import { Button, buttonVariants } from "../ui/button";
 import { Badge, Card, Textarea } from "../ui/primitives";
+import { BookTab, loadOffers } from "./book-tab";
 import { BudgetTab } from "./budget-tab";
 import { DaysTab } from "./days-tab";
 import { downloadICS, downloadJSON, tripAsText } from "./export";
@@ -48,11 +51,12 @@ const RouteMap = dynamic(() => import("./route-map"), {
   loading: () => <div className="skeleton h-full w-full" />,
 });
 
-type TabId = "route" | "days" | "explore" | "budget" | "packing" | "notes";
+type TabId = "route" | "days" | "explore" | "book" | "budget" | "packing" | "notes";
 const TABS: { id: TabId; label: string; icon: typeof Route }[] = [
   { id: "route", label: "Route", icon: Route },
   { id: "days", label: "Days", icon: CalendarDays },
   { id: "explore", label: "Things to do", icon: Ticket },
+  { id: "book", label: "Compare & book", icon: Scale },
   { id: "budget", label: "Budget", icon: Wallet },
   { id: "packing", label: "Packing", icon: Backpack },
   { id: "notes", label: "Notes", icon: NotebookPen },
@@ -120,10 +124,24 @@ export function TripView({ id }: { id: string }) {
     setToast("Itinerary copied — paste it into WhatsApp or email");
   }
 
+  /** Saves the trip to the account so its read-only link (/t/id) works, and returns that link. */
+  async function shareLink() {
+    const res = await fetch("/api/trips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trip }) }).catch(() => null);
+    return res?.ok ? `${window.location.origin}/t/${trip!.id}` : undefined;
+  }
+
+  async function copyShareLink() {
+    const url = await shareLink();
+    if (!url) return setToast("Sign in to get a share link");
+    await navigator.clipboard.writeText(url).catch(() => {});
+    setToast("Link copied: anyone with it can view this itinerary");
+  }
+
   async function makePDF() {
     setBusy(true);
     try {
-      const blob = await buildItineraryPDF(trip!, profile.currency);
+      const [shareUrl, offers] = await Promise.all([shareLink(), loadOffers().catch(() => [])]);
+      const blob = await buildItineraryPDF(trip!, profile.currency, { shareUrl, offers });
       return new File([blob], pdfFileName(trip!), { type: "application/pdf" });
     } finally {
       setBusy(false);
@@ -198,6 +216,7 @@ export function TripView({ id }: { id: string }) {
                       {[
                         { icon: FileDown, label: "Download PDF (with photos)", run: downloadPDF },
                         { icon: WhatsAppIcon, label: "Send PDF on WhatsApp", run: shareWhatsApp },
+                        { icon: Link2, label: "Copy share link", run: copyShareLink },
                         { icon: Printer, label: "Print this page", run: () => window.print() },
                         { icon: CalendarDays, label: "Add to calendar (.ics)", run: () => downloadICS(trip) },
                         { icon: Copy, label: "Copy as text", run: async () => { await navigator.clipboard.writeText(tripAsText(trip)); setToast("Copied to clipboard"); } },
@@ -317,6 +336,7 @@ export function TripView({ id }: { id: string }) {
             />
           )}
           {tab === "explore" && <ToursExplorer trip={trip} onChange={saveTrip} currency={profile.currency} initialPlace={tourPlace} />}
+          {tab === "book" && <BookTab trip={trip} onChange={saveTrip} currency={profile.currency} />}
           {tab === "budget" && <BudgetTab trip={trip} onChange={saveTrip} currency={profile.currency} />}
           {tab === "packing" && <PackingTab trip={trip} onChange={saveTrip} />}
           {tab === "notes" && <NotesTab trip={trip} onChange={saveTrip} />}

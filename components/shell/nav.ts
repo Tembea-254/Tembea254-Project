@@ -1,4 +1,4 @@
-import { Clapperboard, HandCoins, Headset, Home, Languages, LayoutDashboard, Route, ShieldAlert, ShoppingBag, Store, UserRound, Users, type LucideIcon } from "lucide-react";
+import { Camera, Clapperboard, HandCoins, Headset, Home, Languages, LayoutDashboard, Route, ShieldAlert, ShoppingBag, Store, UserRound, Users, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -45,3 +45,6 @@ export function workspaceLinks(a: { seller: string; creator: string; admin: bool
 export const EARN_LINK: NavItem = { href: "/marketplace/join", label: "Earn with Tembea", short: "Earn", icon: HandCoins };
 
 export const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(href + "/");
+
+/** Paid recording jobs for young creators: open to every signed-in user, no application needed. */
+export const SCOUTS_LINK: NavItem = { href: "/scouts", label: "Tembea Scouts", short: "Scouts", icon: Camera };

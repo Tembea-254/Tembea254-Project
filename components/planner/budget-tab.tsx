@@ -14,7 +14,7 @@ const CATS: Record<ExpenseCategory, { label: string; icon: typeof Bus; color: st
   activities: { label: "Activities", icon: Ticket, color: "bg-savanna-500" },
   parks: { label: "Park fees", icon: Landmark, color: "bg-ochre-400" },
   food: { label: "Food & drink", icon: UtensilsCrossed, color: "bg-ochre-600" },
-  other: { label: "Other & tips", icon: CircleDollarSign, color: "bg-ink-muted" },
+  other: { label: "Tips & 10% price buffer", icon: CircleDollarSign, color: "bg-ink-muted" },
 };
 
 export function BudgetTab({ trip, onChange, currency }: { trip: Trip; onChange: (t: Trip) => void; currency: Currency }) {

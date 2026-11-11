@@ -28,7 +28,7 @@ export const DEFAULT_SETTINGS = {
   plannerFreeCredits: 5,
   /** seconds between sponsored cards: free plan and Pro plan */
   adIntervalFreeSec: 20,
-  adIntervalProSec: 300,
+  adIntervalProSec: 3600,
   /** Pro subscription price per month */
   proPriceKes: 499,
   /** a scout can hold this many claimed (not yet submitted) gigs at once */

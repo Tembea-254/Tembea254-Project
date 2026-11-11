@@ -22,15 +22,22 @@ export default async function PartnersAdmin({ searchParams }: { searchParams: { 
     db.select({ n: sql<number>`count(*)::int` }).from(s.applications).where(sql`${s.applications.kind} = 'partner' and ${s.applications.status} = 'pending'`),
   ]);
   const offerClicks = await db.select({ n: sql<number>`coalesce(sum(${s.partnerOffers.clicks}),0)::int` }).from(s.partnerOffers);
+  const refs = await db
+    .select({ provider: s.referrals.provider, n: sql<number>`count(*)::int` })
+    .from(s.referrals)
+    .groupBy(s.referrals.provider)
+    .orderBy(sql`count(*) desc`)
+    .limit(8);
+  const refTotal = refs.reduce((a, r) => a + r.n, 0);
 
   return (
     <>
-      <PageHeader eyebrow="Marketplace" title="Partners & ads" text="Tour operators, stays and car hire that list packages in the AI planner, and the sponsored cards shown in the app. Free users see an ad about every 20 seconds, Pro about every 5 minutes (change it in Settings)." />
+      <PageHeader eyebrow="Marketplace" title="Partners & ads" text="Tour operators, stays and car hire that list packages in the AI planner, and the sponsored cards shown in the app. Free users see an ad about every 20 seconds, Pro about once an hour (change both in Settings)." />
       <div className="mb-5 grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,190px),1fr))]">
         <Stat label="Partners" value={partners.filter((p) => p.active).length} hint={`${partners.filter((p) => p.sponsored).length} sponsored`} icon={Handshake} />
         <Stat label="Ad impressions" value={totals[0].imp.toLocaleString()} icon={Eye} tone="violet" />
         <Stat label="Ad clicks" value={totals[0].clicks.toLocaleString()} hint={`CTR ${pct(totals[0].clicks, totals[0].imp)}`} icon={MousePointerClick} tone="ochre" />
-        <Stat label="Package clicks" value={offerClicks[0].n.toLocaleString()} hint="Travellers sent to partners" icon={Package} tone="ink" />
+        <Stat label="Referrals sent" value={refTotal.toLocaleString()} hint={`${offerClicks[0].n} via listed packages`} icon={Package} tone="ink" />
       </div>
       <FilterTabs
         base="/admin/partners"
@@ -44,6 +51,19 @@ export default async function PartnersAdmin({ searchParams }: { searchParams: { 
         ]}
       />
       <Flash ok={searchParams.ok} error={searchParams.error} />
+      {tab === "partners" && refs.length > 0 && (
+        <Panel title="Travellers sent to operators (Tembea254 referrals)" className="mb-5">
+          <p className="mb-3 text-sm text-ink-muted">Every booking link carries utm_source=tembea254 and ref=tembea254, so operators see these visits in their own analytics. Use these numbers when you sign them up.</p>
+          <ul className="grid gap-2 text-sm sm:grid-cols-2">
+            {refs.map((r) => (
+              <li key={r.provider} className="flex justify-between rounded-2xl bg-sand-50 px-3 py-2">
+                <span className="truncate">{r.provider}</span>
+                <b className="font-display">{r.n}</b>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
       {tab === "partners" && <Partners partners={partners} editId={searchParams.edit} />}
       {tab === "packages" && <Packages partners={partners} editId={searchParams.edit} />}
       {tab === "ads" && <Ads partners={partners} editId={searchParams.edit} />}

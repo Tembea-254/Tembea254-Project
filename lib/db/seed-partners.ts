@@ -1,3 +1,4 @@
+import { and, eq, sql } from "drizzle-orm";
 import { IMG } from "../data/images";
 import type { DB } from "./index";
 import * as s from "./schema";
@@ -37,9 +38,12 @@ export async function seedPartners(db: DB) {
     { id: "ad_rr_mara", partnerId: "pt_riftreef", headline: "4 days Mara & Naivasha, private 4x4", body: "From KES 72,000 per person, full board. Sample listing.", image: IMG.maraMigration, cta: "See the package", url: "/partners", placement: "all" },
     { id: "ad_coast", partnerId: "pt_coast", headline: "Tsavo East from Diani in 3 days", body: "Hotel pick-up, game drives and a lodge night under the stars. Sample listing.", image: IMG.tsavoElephants, cta: "View offer", url: "/partners", placement: "planner" },
     { id: "ad_house_pro", partnerId: null, headline: "Fewer ads with Tembea Pro", body: "Unlimited AI plans, full-length 360° previews, and ads only every few minutes.", image: IMG.maraBalloon, cta: "Go Pro", url: "/profile#premium", placement: "all" },
-    { id: "ad_house_list", partnerId: null, headline: "Run a safari company? List it here", body: "Reach travellers at the moment they plan. Pay only when they click.", image: IMG.amboseliKili, cta: "Advertise with us", url: "/partners", placement: "all" },
   ];
   for (const a of adsRows) await db.insert(s.ads).values(a).onConflictDoNothing();
+  // "advertise with us" lives on the home page, not inside the app
+  await db.update(s.ads).set({ active: false }).where(eq(s.ads.id, "ad_house_list"));
+  // Pro members see an ad about once an hour (it was every 5 minutes)
+  await db.update(s.settings).set({ value: 3600 }).where(and(eq(s.settings.key, "adIntervalProSec"), sql`${s.settings.value} = '300'::jsonb`));
 
   const days = (n: number) => new Date(Date.now() + n * 86400_000);
   const gigsRows: (typeof s.gigs.$inferInsert)[] = [

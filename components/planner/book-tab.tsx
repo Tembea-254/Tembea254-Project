@@ -6,6 +6,8 @@ import { PLACE_BY_ID, type Tier } from "@/lib/data/places";
 import { staysFor, type Stay } from "@/lib/data/stays";
 import { bookingUrl, mapsUrl, rankPackages } from "@/lib/planner/compare";
 import { BUFFER_PCT, computePlanned } from "@/lib/planner/engine";
+import { LivePackages, LocalServices } from "./live-offers";
+import { cachedOffers, loadOffers } from "./offers-client";
 import type { Trip } from "@/lib/planner/types";
 import type { OfferView } from "@/lib/repo/partners";
 import { cn, money, unsplash, type Currency } from "@/lib/utils";
@@ -15,20 +17,13 @@ import { cn, money, unsplash, type Currency } from "@/lib/utils";
  * comparing ride prices), stays at every stop by price level, and transport. One honest
  * "Tembea pick" per section, computed from fit, price and rating; sponsorship never changes it.
  */
-let cache: OfferView[] | null = null;
-export async function loadOffers() {
-  if (cache) return cache;
-  const res = await fetch("/api/offers");
-  cache = ((await res.json()) as { offers: OfferView[] }).offers ?? [];
-  return cache;
-}
 
 const TIER_LABEL: Record<Tier, string> = { budget: "Budget", mid: "Mid-range", luxury: "Premium" };
 
 type Sort = "pick" | "price" | "rating";
 
 export function BookTab({ trip, onChange, currency }: { trip: Trip; onChange: (t: Trip) => void; currency: Currency }) {
-  const [offers, setOffers] = useState<OfferView[] | null>(cache);
+  const [offers, setOffers] = useState<OfferView[] | null>(cachedOffers());
   const [sort, setSort] = useState<Sort>("pick");
   const [stopId, setStopId] = useState(trip.stops[0]?.id);
   useEffect(() => {
@@ -70,7 +65,6 @@ export function BookTab({ trip, onChange, currency }: { trip: Trip; onChange: (t
     onChange({ ...next, planned: computePlanned(next) });
   };
 
-  const transport = (offers ?? []).filter((o) => o.kind === "transport" && o.places.some((p) => places.includes(p)));
 
   return (
     <div className="space-y-8">
@@ -89,12 +83,14 @@ export function BookTab({ trip, onChange, currency }: { trip: Trip; onChange: (t
         </div>
       </div>
 
-      {/* ---------------- Safari packages ---------------- */}
+      <LivePackages trip={trip} currency={currency} />
+
+      {/* ---------------- Partner packages ---------------- */}
       <section>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold">Safari companies that can run this trip</h2>
-            <p className="text-sm text-ink-muted">Packages from partners covering your stops, priced for your group. Book directly with them.</p>
+            <h2 className="text-xl font-bold">Tembea254 partner packages</h2>
+            <p className="text-sm text-ink-muted">Operators listed with us, compared for your stops and priced for your group.</p>
           </div>
           <div className="flex gap-1 rounded-full bg-sand-100 p-1 text-sm">
             {(
@@ -194,7 +190,7 @@ export function BookTab({ trip, onChange, currency }: { trip: Trip; onChange: (t
 
       {/* ---------------- Stays ---------------- */}
       <section>
-        <h2 className="text-xl font-bold">Where to stay, compared</h2>
+        <h2 className="text-xl font-bold">At each stop: stays, transport, guides and tours</h2>
         <p className="mb-3 text-sm text-ink-muted">Every stop by price level. Totals are for {nights} nights across the trip, {rooms} room{rooms > 1 ? "s" : ""}. Check live prices before you pay.</p>
         <div className="scrollbar-none -mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
           {trip.stops.map((s) => (
@@ -269,43 +265,13 @@ export function BookTab({ trip, onChange, currency }: { trip: Trip; onChange: (t
         <p className="mt-3 flex items-start gap-2 text-xs text-ink-muted">
           <BedDouble className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Rates are typical for the season and room type. &quot;Live price&quot; opens the property on Booking.com with today&apos;s availability.
         </p>
+        {stop && (
+          <div className="mt-5">
+            <LocalServices placeId={stop.placeId} travelers={trip.travelers} nights={stop.nights} currency={currency} />
+          </div>
+        )}
       </section>
 
-      {/* ---------------- Transport ---------------- */}
-      {transport.length > 0 && (
-        <section>
-          <h2 className="text-xl font-bold">Getting around</h2>
-          <p className="mb-3 text-sm text-ink-muted">Vehicles for the whole trip ({days} days). Trains and flights between stops are in the Route tab.</p>
-          <div className="grid gap-3 md:grid-cols-2">
-            {transport
-              .slice()
-              .sort((a, b) => a.pricePerPerson - b.pricePerPerson)
-              .map((o) => (
-                <div key={o.id} className="flex items-start gap-3 rounded-3xl bg-white p-4 shadow-card">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sand-100">
-                    <Car className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap gap-1">
-                      {o.partner.sponsored && <span className="rounded-full bg-ochre-400 px-2 py-0.5 font-display text-[10px] font-bold uppercase text-ink">Sponsored</span>}
-                      {o.partner.demo && <span className="rounded-full bg-sand-100 px-2 py-0.5 font-display text-[10px] font-bold uppercase text-ink-muted">Sample listing</span>}
-                    </div>
-                    <p className="mt-1 font-display text-sm font-bold">{o.title}</p>
-                    <p className="text-xs text-ink-muted">
-                      {o.partner.name} · {o.includes.slice(0, 3).join(" · ")}
-                    </p>
-                    <p className="mt-2 font-display font-bold">
-                      {money(o.pricePerPerson * days, currency)} <span className="text-xs font-normal text-ink-muted">· {money(o.pricePerPerson, currency)}/day</span>
-                    </p>
-                  </div>
-                  <a href={`/api/go?offer=${o.id}`} target="_blank" rel="noreferrer sponsored" className="inline-flex h-9 shrink-0 items-center rounded-full border border-ink/15 px-3 font-display text-xs font-semibold">
-                    Book
-                  </a>
-                </div>
-              ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

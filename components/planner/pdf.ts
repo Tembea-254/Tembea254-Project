@@ -3,11 +3,7 @@
 import type { jsPDF as JsPDF } from "jspdf";
 import { placeMedia } from "@/lib/data/place-media";
 import { PLACE_BY_ID } from "@/lib/data/places";
-import { STAY_BY_ID } from "@/lib/data/stays";
-import { bookingUrl, rankPackages } from "@/lib/planner/compare";
-import { BUFFER_PCT } from "@/lib/planner/engine";
 import type { Trip } from "@/lib/planner/types";
-import type { OfferView } from "@/lib/repo/partners";
 import { drawKenyaMap } from "./pdf-map";
 import { addDays, fmtDate, money, unsplash, type Currency } from "@/lib/utils";
 
@@ -44,9 +40,9 @@ async function toDataURL(url: string): Promise<string | null> {
 /**
  * Builds a photo-rich, branded A4 itinerary. Returns the PDF as a Blob.
  * Cover with a QR to the live online itinerary, destination cards with 360° QR codes, a route map,
- * day-by-day pages each with a small locator map, and a "How to book" page with links.
+ * and day-by-day pages each with a small locator map.
  */
-export async function buildItineraryPDF(trip: Trip, currency: Currency = "KES", extras: { shareUrl?: string; offers?: OfferView[] } = {}): Promise<Blob> {
+export async function buildItineraryPDF(trip: Trip, currency: Currency = "KES", extras: { shareUrl?: string } = {}): Promise<Blob> {
   const [{ jsPDF }, QR] = await Promise.all([import("jspdf"), import("qrcode")]);
   const doc: JsPDF = new jsPDF({ unit: "mm", format: "a4" });
   const W = 210;
@@ -305,98 +301,6 @@ export async function buildItineraryPDF(trip: Trip, currency: Currency = "KES", 
     });
     y = Math.max(y, top + miniH + 6) + 4;
   });
-  footer();
-
-  /* ---------- How to book ---------- */
-  doc.addPage();
-  y = M;
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...INK);
-  doc.text("How to book", M, y + 6);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(...MUTED);
-  doc.text("Tap a link to check live prices and availability. Prices in this plan are estimates.", M, y + 12);
-  y += 22;
-  const rooms = Math.max(1, Math.ceil(trip.travelers / 2));
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...INK);
-  doc.text("Stays", M, y);
-  y += 6;
-  for (const s of trip.stops) {
-    const p = PLACE_BY_ID[s.placeId];
-    const st = s.stayId ? STAY_BY_ID[s.stayId] : undefined;
-    doc.setFillColor(...SAND);
-    doc.roundedRect(M, y - 4, W - 2 * M, 14, 3, 3, "F");
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...INK);
-    doc.text(safe(`${p.name}: ${s.stay}`), M + 3, y + 1);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...MUTED);
-    doc.text(safe(`${s.nights} night${s.nights > 1 ? "s" : ""} · ${rooms} room${rooms > 1 ? "s" : ""} · about ${money(s.stayPerNight * s.nights * rooms, currency)}${st ? ` · ${st.board} · ${st.cancellation}` : ""}`), M + 3, y + 6);
-    doc.setTextColor(...GREEN);
-    doc.setFont("helvetica", "bold");
-    doc.textWithLink("CHECK LIVE PRICE", W - M - 3, y + 1, { url: bookingUrl(s.stay, p.name), align: "right" });
-    doc.setFont("helvetica", "normal");
-    y += 17;
-    if (y > H - 40) {
-      footer();
-      doc.addPage();
-      y = M;
-    }
-  }
-  const packs = extras.offers ? rankPackages(extras.offers, trip).slice(0, 3) : [];
-  if (packs.length) {
-    y += 4;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...INK);
-    doc.text("Or book it as a package", M, y);
-    y += 6;
-    packs.forEach((o, i) => {
-      if (y > H - 40) {
-        footer();
-        doc.addPage();
-        y = M;
-      }
-      const tags = [i === 0 ? "TEMBEA PICK" : "", o.partner.sponsored ? "SPONSORED" : "", o.partner.demo ? "SAMPLE LISTING" : ""].filter(Boolean).join(" · ");
-      doc.setDrawColor(...(i === 0 ? GREEN : SAND));
-      doc.setLineWidth(i === 0 ? 0.6 : 0.3);
-      doc.roundedRect(M, y - 4, W - 2 * M, 19, 3, 3, "S");
-      if (tags) {
-        doc.setFontSize(6.5);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...GREEN);
-        doc.text(tags, M + 3, y);
-        y += 3.5;
-      }
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...INK);
-      doc.text(safe(o.title), M + 3, y + 1);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(...MUTED);
-      doc.text(safe(`${o.partner.name} · ${o.days} days · covers ${o.covered.length} of ${trip.stops.length} stops · ${o.includes.slice(0, 3).join(", ")}`).slice(0, 120), M + 3, y + 6);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...INK);
-      doc.text(money(o.total, currency), W - M - 3, y + 1, { align: "right" });
-      doc.setFontSize(7.5);
-      doc.setTextColor(...GREEN);
-      doc.textWithLink("VIEW PACKAGE", W - M - 3, y + 6, { url: `${origin}/api/go?offer=${o.id}`, align: "right" });
-      doc.setFont("helvetica", "normal");
-      y += tags ? 18.5 : 22;
-    });
-  }
-  y += 6;
-  doc.setFontSize(8.5);
-  doc.setTextColor(...MUTED);
-  doc.text(doc.splitTextToSize(`Estimated total ${money(total, currency)} includes a ${Math.round(BUFFER_PCT * 100)}% buffer for price changes and tips. Confirm every price with the provider before paying.`, W - 2 * M), M, y);
   footer();
 
   return doc.output("blob");

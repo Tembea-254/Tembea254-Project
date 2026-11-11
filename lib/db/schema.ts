@@ -36,7 +36,7 @@ export const users = pgTable(
     tokens: integer("tokens").notNull().default(0),
     /** AI planner / premium credits — for the upcoming paid plans */
     credits: integer("credits").notNull().default(5),
-    /** subscription: free (ads every ~20 s) | pro (ads every ~5 min, unlimited planner) */
+    /** subscription: free (ads every ~20 s) | pro (ads about once an hour, unlimited planner) */
     plan: text("plan").$type<UserPlan>().notNull().default("free"),
     /** public profile: @handle and a short bio (community) */
     handle: text("handle"),
@@ -284,7 +284,7 @@ export const partnerOffers = pgTable(
   (t) => [index("offers_partner_idx").on(t.partnerId)],
 );
 
-/** Sponsored creatives shown between screens. Free users see them every ~20 s, Pro every ~5 min. */
+/** Sponsored creatives shown between screens. Free users see them every ~20 s, Pro about once an hour. */
 export const ads = pgTable("ads", {
   id: id(),
   partnerId: text("partner_id"),
@@ -302,6 +302,28 @@ export const ads = pgTable("ads", {
   endsAt: timestamp("ends_at", { withTimezone: true }),
   createdAt: created(),
 });
+
+/** Live prices the AI found on operators' own sites, cached so each search is paid for once a day. */
+export const liveCache = pgTable("live_cache", {
+  key: text("key").primaryKey(),
+  data: jsonb("data").notNull(),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Every traveller Tembea254 sends to an operator's site: the B2B referral record partners are billed on. */
+export const referrals = pgTable(
+  "referrals",
+  {
+    id: id(),
+    provider: text("provider").notNull(),
+    url: text("url").notNull(),
+    placeId: text("place_id"),
+    kind: text("kind").notNull().default("package"),
+    userId: text("user_id"),
+    createdAt: created(),
+  },
+  (t) => [index("referrals_provider_idx").on(t.provider)],
+);
 
 /* ------------------------------------------------------------------ */
 /* Community                                                           */

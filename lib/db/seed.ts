@@ -13,7 +13,7 @@ import { seedPartners } from "./seed-partners";
 import { DEFAULT_SETTINGS } from "./settings-defaults";
 
 /** Bump when the seed data changes; the seed runs once per version. */
-const SEED_VERSION = 4;
+const SEED_VERSION = 5;
 
 /**
  * Fills a new database with Tembea's built-in content (VR destinations, blog, phrasebook,

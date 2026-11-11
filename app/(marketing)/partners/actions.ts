@@ -7,10 +7,13 @@ import { notifyAdmins } from "@/lib/notify";
 import { currentUser } from "@/lib/session";
 
 const str = (f: FormData, k: string, max = 500) => String(f.get(k) ?? "").trim().slice(0, max);
-const back = (kind: "ok" | "error", msg: string): never => redirect(`/partners?${kind}=${encodeURIComponent(msg)}#join`);
+const backTo = (to: string, kind: "ok" | "error", msg: string): never => redirect(`${to}?${kind}=${encodeURIComponent(msg)}${to === "/" ? "#advertise" : "#join"}`);
 
 /** A tour operator, lodge or car-hire business asking to list or advertise. Lands in /admin/partners → Leads. */
 export async function partnerEnquiry(f: FormData) {
+  // the form lives on the home page and on /partners: send people back to the one they used
+  const to = str(f, "back") === "/" ? "/" : "/partners";
+  const back = (kind: "ok" | "error", msg: string) => backTo(to, kind, msg);
   if (str(f, "website_confirm")) back("ok", "Thanks! We'll be in touch."); // honeypot for bots
   const company = str(f, "company", 100);
   const email = str(f, "email", 120);

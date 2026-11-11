@@ -46,5 +46,5 @@ export const EARN_LINK: NavItem = { href: "/marketplace/join", label: "Earn with
 
 export const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(href + "/");
 
-/** Paid recording jobs for young creators: open to every signed-in user, no application needed. */
-export const SCOUTS_LINK: NavItem = { href: "/scouts", label: "Tembea Scouts", short: "Scouts", icon: Camera };
+/** The one place to earn: paid recording jobs (Scouts), with a way in to selling or creator applications. */
+export const SCOUTS_LINK: NavItem = { href: "/scouts", label: "Earn with Tembea254", short: "Earn", icon: Camera };

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/ads?placement=planner&exclude=ad_1
  * The next sponsored card and how long to wait before showing another one:
- * free plan every ~20 s, Pro every ~5 min (both set in /admin/settings).
+ * free plan every ~20 s, Pro about once an hour (both set in /admin/settings).
  */
 export const GET = handler(async (req: Request) => {
   const url = new URL(req.url);

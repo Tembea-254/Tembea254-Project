@@ -46,7 +46,7 @@ export default async function ScoutsPage({ searchParams }: { searchParams: { tab
 
   return (
     <div className="container-page py-6 sm:py-10">
-      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-savanna-600">Tembea Scouts</p>
+      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-savanna-600">Earn with Tembea254 · Scouts</p>
       <h1 className="mb-1 text-2xl font-bold sm:text-3xl">Habari {me.name.split(" ")[0] || "Scout"}, ready to earn?</h1>
       <p className="mb-5 max-w-2xl text-sm text-ink-muted">Film the places travellers want to see before they visit. Every approved recording is paid to {prettyPhone(scout.phone)}.</p>
 
@@ -66,6 +66,12 @@ export default async function ScoutsPage({ searchParams }: { searchParams: { tab
         ))}
       </nav>
       <Flash ok={searchParams.ok} error={searchParams.error} />
+      <Link href="/marketplace/join" className="mb-5 flex items-center justify-between gap-3 rounded-3xl bg-white p-4 text-sm shadow-card hover:shadow-lift">
+        <span>
+          <b className="font-display">Want to earn another way?</b> <span className="text-ink-muted">Sell products, offer tours and services, or host paid live walks as a Tembea254 creator.</span>
+        </span>
+        <span className="shrink-0 font-display font-semibold text-savanna-700">Apply</span>
+      </Link>
 
       {tab === "jobs" &&
         (gigs.length ? (

@@ -6,6 +6,7 @@
  * normalised through this module so the UI always receives a valid Trip.
  */
 import { FOOD_PER_DAY, PARK_FEES, PLACES, PLACE_BY_ID, type ActivitySeed, type Interest, type Place, type Tier } from "../data/places";
+import { HOME_BY_ID } from "./origin";
 import { addDays, haversineKm, uid, unsplash } from "../utils";
 import type { Day, ExpenseCategory, Item, Leg, PackItem, PlanRequest, Stop, Trip } from "./types";
 import { transportOptions, type TransportMode } from "./transport";
@@ -103,6 +104,8 @@ export function chooseStops(req: PlanRequest, parsedPlaces: string[]): string[] 
   }
   if (!picks.length) picks.push("nairobi");
   // 3. International arrivals land at JKIA: start in Nairobi unless the route already begins at a gateway.
+  //    Kenyans leave from home, so no Nairobi stop is added for them.
+  if (req.origin?.kind === "kenya") return trimToNights(picks.filter((id) => id !== "nairobi" || explicit.includes(id) || picks.length === 1), nights);
   const firstIsGateway = picks.some((id) => PLACE_BY_ID[id].gateway && PLACE_BY_ID[id].kind !== "safari");
   const coastOnly = picks.every((id) => GROUPS[1].includes(id));
   if (!picks.includes("nairobi") && nights >= 3 && !(coastOnly && firstIsGateway)) picks.unshift("nairobi");
@@ -199,6 +202,7 @@ function itemFromSeed(seed: ActivitySeed, travelers: number): Item {
 
 function buildDays(req: PlanRequest, stops: Stop[], legs: Leg[]): Day[] {
   const days: Day[] = [];
+  const home = req.origin?.kind === "kenya" ? HOME_BY_ID[req.origin.city ?? "nairobi"] ?? HOME_BY_ID.nairobi : undefined;
   const used = new Set<string>();
   let dayIndex = 0;
   const perDay = PER_SLOT[req.style];
@@ -212,8 +216,18 @@ function buildDays(req: PlanRequest, stops: Stop[], legs: Leg[]): Day[] {
       const date = addDays(req.startDate, dayIndex);
       const isArrival = n === 0;
       let title = p.name;
-      if (dayIndex === 0) {
-        items.push({ id: uid("i_"), time: "10:00", title: `Arrive in ${p.name}${p.id === "nairobi" ? " (JKIA)" : ""}`, type: "transport", cost: 0, notes: "Meet your driver-guide, SIM & cash at arrivals" });
+      if (dayIndex === 0 && home) {
+        const homeName = HOME_BY_ID[req.origin!.city ?? "nairobi"]?.name ?? "home";
+        if (home.near !== p.id) {
+          const leg = estimateLeg(home.near, p.id, undefined, req.travelers);
+          items.push({ id: uid("i_"), time: leg.mode === "flight" ? "08:30" : "07:00", title: `${leg.label}: ${homeName} → ${p.name}`, type: "transport", minutes: leg.minutes, cost: leg.cost * req.travelers, notes: `${leg.km} km · approx. ${Math.round(leg.minutes / 60)}h` });
+          title = `${homeName} to ${p.name}`;
+        } else {
+          title = `Start in ${p.name}`;
+        }
+      } else if (dayIndex === 0) {
+        const from = req.origin?.country ? ` from ${req.origin.country}` : "";
+        items.push({ id: uid("i_"), time: "10:00", title: `Arrive in ${p.name}${p.id === "nairobi" ? " (JKIA)" : ""}${from}`, type: "transport", cost: 0, notes: `Meet your driver-guide, SIM & cash at arrivals${from ? ". International flights aren't in this estimate" : ""}` });
         title = `Karibu Kenya — ${p.name}`;
       } else if (isArrival && legIn) {
         items.push({
@@ -262,6 +276,20 @@ function buildDays(req: PlanRequest, stops: Stop[], legs: Leg[]): Day[] {
   // Departure day
   const last = stops[stops.length - 1];
   const lastPlace = PLACE_BY_ID[last.placeId];
+  if (home) {
+    const leg = home.near !== last.placeId ? estimateLeg(last.placeId, home.near, undefined, req.travelers) : undefined;
+    days.push({
+      id: uid("d_"),
+      date: addDays(req.startDate, dayIndex),
+      placeId: last.placeId,
+      title: `Kwaheri — home to ${home.name}`,
+      items: [
+        { id: uid("i_"), time: "07:30", title: "Breakfast & check out", type: "meal", cost: 0 },
+        ...(leg ? [{ id: uid("i_"), time: leg.mode === "flight" ? "11:00" : "09:00", title: `${leg.label}: ${lastPlace.name} → ${home.name}`, type: "transport" as const, minutes: leg.minutes, cost: leg.cost * req.travelers, notes: `${leg.km} km` }] : []),
+      ],
+    });
+    return days;
+  }
   const homeLeg = lastPlace.gateway ? undefined : estimateLeg(last.placeId, "nairobi", undefined, req.travelers);
   days.push({
     id: uid("d_"),
@@ -425,6 +453,7 @@ export function finaliseTrip(req: PlanRequest, stops: Stop[], days: Day[], sourc
     notes: "",
     source,
     cover: unsplash(PLACE_BY_ID[stops.find((s) => PLACE_BY_ID[s.placeId].kind !== "city")?.placeId ?? stops[0].placeId].image, 1600),
+    origin: req.origin,
   };
 }
 
@@ -440,6 +469,7 @@ export function rebuildFromStops(trip: Trip): Trip {
     budget: trip.budget,
     interests: trip.interests,
     places: [],
+    origin: trip.origin,
   };
   const legs = legsFor(trip.stops, trip.travelers);
   const days = buildDays(req, trip.stops, legs);

@@ -72,7 +72,9 @@ export const VR_DESTINATIONS: VRDestination[] = [
     scenes: [
       { id: "mara-drive", mode: "drive", spot: "Zebra plains", title: "Game drive across the plains", time: "day", source: yt("EPP36G3Z3l4", 30), minutes: 17, credit: "Rob The Ranger Wildlife Videos" },
       { id: "mara-elephants", mode: "drive", spot: "Elephant herd", title: "Among the Mara elephants", time: "day", source: yt("vVcUFoEQWP0", 3), minutes: 2, credit: "Richard Kuberski" },
+      { id: "mara-warriors-walk", mode: "walk", spot: "On foot with Maasai warriors", title: "Walk with Maasai warriors (360°)", time: "day", source: yt("xW17av3QAx8"), minutes: 4, credit: "FunForLouis" },
       { id: "mara-village", mode: "walk", spot: "Maasai village", title: "Inside a Maasai manyatta", time: "day", source: yt("t60d3p3vuTs", 2), minutes: 2, credit: "360Africa" },
+      { id: "mara-lions-8k", mode: "drive", spot: "Lion pride", title: "Lions up close (8K)", time: "day", source: yt("eFtxvYOK0Vc", 5), minutes: 6, premium: true, credit: "Christian D." },
       { id: "mara-balloon", mode: "fly", spot: "Sunrise balloon", title: "Hot-air balloon at sunrise (8K)", time: "day", source: yt("Nuvd4boqVsU", 5), minutes: 4, premium: true, credit: "Odyssey Visual Media" },
       { id: "mara-wild", mode: "drive", spot: "Wildlife all around", title: "Wild animals surround you", time: "day", source: yt("P44-kkFrO2c", 10), minutes: 8, premium: true, credit: "Jungle Boy Safari" },
       { id: "mara-balloon-tl", mode: "fly", spot: "Balloon time-lapse", title: "Floating over the Mara at dawn", time: "day", source: yt("DsIgb5pVkSQ"), minutes: 1, credit: "bluesnyc" },

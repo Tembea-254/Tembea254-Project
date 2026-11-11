@@ -5,6 +5,7 @@ import { ArrowRight, RotateCcw, Send, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PLACE_BY_ID, type Interest, type Tier } from "@/lib/data/places";
 import { parsePrompt } from "@/lib/planner/engine";
+import { HOME_CITIES, originLabel } from "@/lib/planner/origin";
 import type { Group, PlanRequest, TravelStyle } from "@/lib/planner/types";
 import { addDays, cn, fmtDate, todayISO } from "@/lib/utils";
 
@@ -13,11 +14,20 @@ import { addDays, cn, fmtDate, todayISO } from "@/lib/utils";
  * dates and pace before the itinerary is built. Every question offers tap-to-answer chips,
  * and free text works too (it goes through the same prompt parser as the main box).
  */
-type Step = "where" | "days" | "who" | "count" | "budget" | "when" | "pace" | "extra" | "ready";
+type Step = "from" | "where" | "days" | "who" | "count" | "budget" | "when" | "pace" | "extra" | "ready";
 type Msg = { from: "bot" | "me"; text: string };
 type Opt = { label: string; apply: (d: Draft) => Partial<Draft> };
 type Draft = PlanRequest & { budgetUnsure?: boolean };
 
+const FROM: Opt[] = [
+  { label: "Nairobi", apply: () => ({ origin: { kind: "kenya" as const, city: "nairobi" } }) },
+  { label: "Mombasa", apply: () => ({ origin: { kind: "kenya" as const, city: "mombasa" } }) },
+  { label: "Kisumu", apply: () => ({ origin: { kind: "kenya" as const, city: "kisumu" } }) },
+  { label: "USA", apply: () => ({ origin: { kind: "abroad" as const, country: "United States" } }) },
+  { label: "UK", apply: () => ({ origin: { kind: "abroad" as const, country: "United Kingdom" } }) },
+  { label: "Germany", apply: () => ({ origin: { kind: "abroad" as const, country: "Germany" } }) },
+  { label: "Another country", apply: () => ({ origin: { kind: "abroad" as const } }) },
+];
 const WHERE: Opt[] = [
   { label: "Safari & wildlife", apply: (d) => ({ interests: add(d.interests, "wildlife") }) },
   { label: "Beach & coast", apply: (d) => ({ interests: add(d.interests, "beach") }) },
@@ -63,7 +73,8 @@ const EXTRA: Opt[] = [
 ];
 
 const QUESTIONS: Record<Exclude<Step, "ready">, { ask: (d: Draft) => string; opts: Opt[]; multi?: boolean }> = {
-  where: { ask: () => "Karibu! Where are you dreaming of in Kenya? Pick as many as you like, or just type it.", opts: WHERE, multi: true },
+  from: { ask: () => "Karibu! First, where will you be travelling from? Tap a city or country, or type it.", opts: FROM },
+  where: { ask: (d) => `Great${d.origin?.kind === "kenya" ? ", we'll start from home" : ""}. Where are you dreaming of in Kenya? Pick as many as you like, or just type it.`, opts: WHERE, multi: true },
   days: { ask: () => "How many days do you have, including travel days?", opts: DAYS },
   who: { ask: () => "Who's coming along?", opts: WHO },
   count: { ask: (d) => `How many ${d.group === "family" ? "people in the family" : "of you"} in total?`, opts: COUNT },
@@ -83,7 +94,7 @@ function nextDec() {
 }
 
 function nextStep(step: Step, d: Draft): Step {
-  const order: Step[] = ["where", "days", "who", "count", "budget", "when", "pace", "extra", "ready"];
+  const order: Step[] = ["from", "where", "days", "who", "count", "budget", "when", "pace", "extra", "ready"];
   let i = order.indexOf(step) + 1;
   // skip "how many" for solo travellers and couples
   if (order[i] === "count" && (d.group === "solo" || d.group === "couple")) i++;
@@ -92,8 +103,8 @@ function nextStep(step: Step, d: Draft): Step {
 
 export function PlanChat({ base, onPlan, busy }: { base: PlanRequest; onPlan: (r: PlanRequest) => void; busy: boolean }) {
   const [draft, setDraft] = useState<Draft>({ ...base, prompt: "", places: [], interests: [] });
-  const [step, setStep] = useState<Step>("where");
-  const [msgs, setMsgs] = useState<Msg[]>([{ from: "bot", text: QUESTIONS.where.ask(draft) }]);
+  const [step, setStep] = useState<Step>("from");
+  const [msgs, setMsgs] = useState<Msg[]>([{ from: "bot", text: QUESTIONS.from.ask(draft) }]);
   const [picked, setPicked] = useState<string[]>([]);
   const [text, setText] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -125,6 +136,10 @@ export function PlanChat({ base, onPlan, busy }: { base: PlanRequest; onPlan: (r
     const num = Number(t.replace(/[^\d]/g, ""));
     if (step === "days" && !p.days && num >= 2 && num <= 21) (d.days = num), touched.add("days");
     if (step === "count" && !p.travelers && num >= 1 && num <= 20) (d.travelers = num), touched.add("travelers");
+    if (step === "from") {
+      const city = HOME_CITIES.find((c) => t.toLowerCase().includes(c.name.split(" ")[0].toLowerCase()));
+      d.origin = city ? { kind: "kenya", city: city.id } : { kind: "abroad", country: t.replace(/^(from|i'm from|im from)\s+/i, "").slice(0, 40) };
+    }
     const date = new Date(t);
     if (step === "when" && !Number.isNaN(date.getTime()) && date.getTime() > Date.now()) d.startDate = date.toISOString().slice(0, 10);
     d = { ...d, touched: [...touched] };
@@ -156,9 +171,9 @@ export function PlanChat({ base, onPlan, busy }: { base: PlanRequest; onPlan: (r
   function restart() {
     const d = { ...base, prompt: "", places: [], interests: [] };
     setDraft(d);
-    setStep("where");
+    setStep("from");
     setPicked([]);
-    setMsgs([{ from: "bot", text: QUESTIONS.where.ask(d) }]);
+    setMsgs([{ from: "bot", text: QUESTIONS.from.ask(d) }]);
   }
 
   const q = step !== "ready" ? QUESTIONS[step] : null;
@@ -243,5 +258,5 @@ function describe(d: Draft) {
 function summary(d: Draft) {
   const who = d.group === "solo" ? "just you" : d.group === "couple" ? "the two of you" : `${d.travelers} people (${d.group})`;
   const budget = d.budgetUnsure ? "mid-range for now, with every cost shown so you can adjust" : d.budget === "luxury" ? "premium stays" : d.budget === "budget" ? "budget stays" : "mid-range lodges";
-  return `Here's what I have:\n• ${describe(d)}\n• ${who}\n• ${budget}\n• starting ${fmtDate(d.startDate, { day: "numeric", month: "short", year: "numeric" })}, ${d.style} pace\n\nI'll build the day-by-day route, then compare stays and safari companies for you with prices.`;
+  return `Here's what I have:\n• ${describe(d)}\n• travelling ${originLabel(d.origin) || "from abroad"}\n• ${who}\n• ${budget}\n• starting ${fmtDate(d.startDate, { day: "numeric", month: "short", year: "numeric" })}, ${d.style} pace\n\nI'll build the day-by-day route, then compare stays and safari companies for you with prices.`;
 }

@@ -15,7 +15,7 @@ const QUIET = [/^\/checkout/, /^\/scouts\/[^/]+$/, /^\/orders/, /^\/vendor/];
 const VISIBLE_MS = 12_000;
 
 /**
- * A small sponsored card that slides in on a timer. Free plan: every ~20 s. Pro: every ~5 min.
+ * A small sponsored card that slides in on a timer. Free plan: every ~20 s. Pro: about once an hour.
  * The interval comes from the server (admin settings), so the business can tune it without a release.
  */
 export function AdSlot() {
@@ -30,6 +30,7 @@ export function AdSlot() {
   useEffect(() => {
     if (quiet) return;
     let alive = true;
+    let first = true;
     let next = 0;
     let hide = 0;
     const wait = (sec: number) => {
@@ -43,6 +44,12 @@ export function AdSlot() {
         const res = await fetch(`/api/ads?placement=${placement}&exclude=${last.current}${profile.premium ? "&pro=1" : ""}`);
         const d = (await res.json()) as { ad: Ad | null; intervalSec: number };
         interval.current = Math.max(10, d.intervalSec || 20);
+        // Pro members: the first check only learns the (long) interval, so they don't get an ad straight away
+        if (first && interval.current > 120) {
+          first = false;
+          return wait(interval.current);
+        }
+        first = false;
         if (d.ad && alive) {
           last.current = d.ad.id;
           setAd(d.ad);

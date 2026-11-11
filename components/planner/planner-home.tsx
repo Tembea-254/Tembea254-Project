@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { INTEREST_LABELS, PLACES, PLACE_BY_ID, type Interest, type Tier } from "@/lib/data/places";
 import { useActivity, useMounted, useProfile, useTrips } from "@/lib/hooks/store";
 import { generateTrip } from "@/lib/planner/engine";
+import { COUNTRIES, HOME_CITIES } from "@/lib/planner/origin";
 import type { Group, PlanRequest, TravelStyle, Trip } from "@/lib/planner/types";
 import { addDays, cn, fmtDate, money, todayISO, unsplash } from "@/lib/utils";
 import { Button } from "../ui/button";
@@ -39,6 +40,7 @@ const DEFAULT_REQ = (): PlanRequest => ({
   budget: "mid",
   interests: [],
   places: [],
+  origin: { kind: "abroad" },
 });
 
 const STEPS = ["Reading your trip description", "Mapping the best route across Kenya", "Matching stays to your budget", "Balancing game drives, beaches and rest", "Adding costs, packing list and tips"];
@@ -311,6 +313,32 @@ function Options({
 }) {
   return (
     <div className="mt-5 space-y-5 border-t border-ink/[0.06] pt-5">
+      <Field label="Travelling from">
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip active={req.origin?.kind !== "kenya"} onClick={() => set("origin", { kind: "abroad", country: req.origin?.country })}>
+            Abroad
+          </Chip>
+          <Chip active={req.origin?.kind === "kenya"} onClick={() => set("origin", { kind: "kenya", city: req.origin?.city ?? "nairobi" })}>
+            Within Kenya
+          </Chip>
+          {req.origin?.kind === "kenya" ? (
+            <select aria-label="Home city" value={req.origin.city ?? "nairobi"} onChange={(e) => set("origin", { kind: "kenya", city: e.target.value })} className="h-11 w-full rounded-2xl border border-ink/10 bg-white px-3 text-sm outline-none focus:border-savanna-500 sm:w-56">
+              {HOME_CITIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select aria-label="Country" value={req.origin?.country ?? ""} onChange={(e) => set("origin", { kind: "abroad", country: e.target.value || undefined })} className="h-11 w-full rounded-2xl border border-ink/10 bg-white px-3 text-sm outline-none focus:border-savanna-500 sm:w-56">
+              <option value="">Choose country…</option>
+              {COUNTRIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      </Field>
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Start date">
           <Input type="date" value={req.startDate} min={todayISO()} onChange={(e) => set("startDate", e.target.value)} />

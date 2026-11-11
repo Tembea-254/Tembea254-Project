@@ -1,3 +1,4 @@
+import type { Origin } from "./origin";
 import type { Interest, Tier } from "../data/places";
 import type { TransportMode } from "./transport";
 
@@ -17,6 +18,8 @@ export interface PlanRequest {
   places: string[];
   /** option fields the user set by hand; untouched ones can be overridden by what the prompt says */
   touched?: ("days" | "budget" | "group" | "travelers")[];
+  /** where the trip starts: abroad (fly in to JKIA) or a Kenyan home city */
+  origin?: Origin;
 }
 
 export type ItemType = "activity" | "meal" | "transport" | "stay" | "note";
@@ -105,4 +108,5 @@ export interface Trip {
   notes: string;
   source: "engine" | "ai";
   cover: string;
+  origin?: Origin;
 }

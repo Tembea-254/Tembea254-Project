@@ -37,7 +37,7 @@ import { cn, fmtDate, money } from "@/lib/utils";
 import { WhatsAppIcon } from "../brand/social-icons";
 import { Button, buttonVariants } from "../ui/button";
 import { Badge, Card, Textarea } from "../ui/primitives";
-import { BookTab, loadOffers } from "./book-tab";
+import { BookTab } from "./book-tab";
 import { BudgetTab } from "./budget-tab";
 import { DaysTab } from "./days-tab";
 import { downloadICS, downloadJSON, tripAsText } from "./export";
@@ -140,8 +140,8 @@ export function TripView({ id }: { id: string }) {
   async function makePDF() {
     setBusy(true);
     try {
-      const [shareUrl, offers] = await Promise.all([shareLink(), loadOffers().catch(() => [])]);
-      const blob = await buildItineraryPDF(trip!, profile.currency, { shareUrl, offers });
+      const shareUrl = await shareLink();
+      const blob = await buildItineraryPDF(trip!, profile.currency, { shareUrl });
       return new File([blob], pdfFileName(trip!), { type: "application/pdf" });
     } finally {
       setBusy(false);

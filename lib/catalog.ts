@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { and, eq, inArray } from "drizzle-orm";
-import type { CatalogItem, CatalogKind } from "./catalog-types";
+import { normalizeItem, type CatalogItem, type CatalogKind } from "./catalog-types";
 import { PLACE_BY_ID } from "./data/places";
 import { STAYS, bookingComUrl } from "./data/stays";
 import { getDb, schema as s } from "./db";
@@ -23,7 +23,7 @@ const EUR = 140;
 export async function catalogFor(places: string[], opts: { affiliates?: boolean } = {}): Promise<CatalogItem[]> {
   const want = [...new Set(places)].filter((p) => PLACE_BY_ID[p]);
   const [partners, hires, web, affiliates] = await Promise.all([partnerItems(want), hireItems(want), webItems(want), opts.affiliates === false ? [] : affiliateItems(want)]);
-  return [...partners, ...hires, ...stayItems(want), ...web, ...affiliates];
+  return [...partners, ...hires, ...stayItems(want), ...web, ...affiliates].map(normalizeItem);
 }
 
 async function partnerItems(places: string[]): Promise<CatalogItem[]> {
@@ -108,7 +108,7 @@ async function webItems(places: string[]): Promise<CatalogItem[]> {
   const db = await getDb();
   const rows = places.length ? await db.select().from(s.liveCache).where(inArray(s.liveCache.key, places.map((p) => `lc:${p}`))) : [];
   return rows.flatMap((r) =>
-    (r.data as LiveOffer[]).map((o, i) => ({
+    (Array.isArray(r.data) ? (r.data as LiveOffer[]) : []).filter((o) => o && o.title && o.go).map((o, i) => ({
       id: `web:${r.key}:${i}`,
       source: "web" as const,
       kind: (o.kind === "package" ? "package" : o.kind) as CatalogKind,

@@ -372,7 +372,7 @@ function TextMode({ from, to, onDone }: { from: string; to: string; onDone: (e: 
               size="sm"
               disabled={!result?.text}
               onClick={async () => {
-                await navigator.clipboard.writeText(result!.text);
+                if (!(await navigator.clipboard.writeText(result!.text).then(() => true, () => false))) return;
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1500);
               }}

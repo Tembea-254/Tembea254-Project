@@ -3,13 +3,14 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Columns3, Globe, Plus, Search, SlidersHorizontal, Sparkles, Star, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { defaultQuantity, groupPrice, KIND_LABEL, SOURCE_LABEL, UNIT_TEXT, type CatalogItem, type CatalogKind, type CatalogSource } from "@/lib/catalog-types";
+import { defaultQuantity, groupPrice, normalizeItem, KIND_LABEL, SOURCE_LABEL, UNIT_TEXT, type CatalogItem, type CatalogKind, type CatalogSource } from "@/lib/catalog-types";
 import { PLACE_BY_ID } from "@/lib/data/places";
 import { rebuildFromStops, computePlanned } from "@/lib/planner/engine";
 import { applyPick, firstDateAt, materializePicks, pickFrom, removePick } from "@/lib/planner/picks";
 import type { Trip } from "@/lib/planner/types";
 import { cn, money, unsplash, type Currency } from "@/lib/utils";
 import { BookingSheet } from "./booking-sheet";
+import { fetchLive, fromLive, fromParam } from "./live-offers";
 
 /**
  * Compare & book: search everything bookable at the trip's stops (packages, stays, vehicles, guides,
@@ -26,6 +27,7 @@ function loadCatalog(places: string[]) {
       key,
       fetch(`/api/catalog?places=${key}`)
         .then((r) => (r.ok ? r.json() : { items: [], affiliates: {} }))
+        .then((d: { items?: CatalogItem[]; affiliates?: Record<string, boolean> }) => ({ items: (d.items ?? []).map(normalizeItem), affiliates: d.affiliates ?? {} }))
         .catch(() => ({ items: [], affiliates: {} })),
     );
   return cache.get(key)!;
@@ -48,6 +50,11 @@ export function CompareWorkspace({ trip, onChange, currency }: { trip: Trip; onC
   const [booking, setBooking] = useState<CatalogItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Packages operators publish on their own sites (Bonfire Adventures, SafariBookings, TripAdvisor…),
+  // found by the AI search and listed here next to everything else so they can be compared.
+  const [online, setOnline] = useState<CatalogItem[] | null>(null);
+  const [onlineNote, setOnlineNote] = useState<string | undefined>();
+  const liveQs = new URLSearchParams({ type: "packages", places: places.join(","), days: String(trip.days.length), travelers: String(trip.travelers), budget: trip.budget, from: fromParam(trip) }).toString();
   useEffect(() => {
     let on = true;
     loadCatalog(places).then((d) => {
@@ -60,19 +67,33 @@ export function CompareWorkspace({ trip, onChange, currency }: { trip: Trip; onC
     };
   }, [places]);
   useEffect(() => {
+    let on = true;
+    setOnline(null);
+    fetchLive(liveQs).then((d) => {
+      if (!on) return;
+      setOnline((d.offers ?? []).filter((o) => o.kind === "package").map((o, i) => normalizeItem(fromLive(o, i, places))));
+      setOnlineNote(d.status === "live" ? undefined : d.note);
+    });
+    return () => {
+      on = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveQs]);
+  const all = useMemo(() => (items ? [...items, ...(online ?? [])] : null), [items, online]);
+  useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3500);
     return () => clearTimeout(t);
   }, [toast]);
 
-  const byId = useMemo(() => Object.fromEntries((items ?? []).map((i) => [i.id, i])), [items]);
+  const byId = useMemo(() => Object.fromEntries((all ?? []).map((i) => [i.id, i])), [all]);
   const nightsAt = (placeId: string) => trip.stops.find((s) => s.placeId === placeId)?.nights ?? 1;
   const totalFor = (i: CatalogItem) => groupPrice(i, trip.travelers, defaultQuantity(i, nightsAt(i.places[0])));
   const coverage = (i: CatalogItem) => i.places.filter((p) => places.includes(p)).length;
 
   const list = useMemo(() => {
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-    const out = (items ?? []).filter(
+    const out = (all ?? []).filter(
       (i) =>
         (kind === "all" || i.kind === kind) &&
         (stop === "all" || i.places.includes(stop)) &&
@@ -89,9 +110,9 @@ export function CompareWorkspace({ trip, onChange, currency }: { trip: Trip; onC
       return score(b) - score(a);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, kind, stop, sources, q, sort, maxPrice, trip.travelers, trip.budget]);
+  }, [all, kind, stop, sources, q, sort, maxPrice, trip.travelers, trip.budget]);
 
-  const presentSources = [...new Set((items ?? []).map((i) => i.source))];
+  const presentSources = [...new Set((all ?? []).map((i) => i.source))];
   const chosen = compare.map((id) => byId[id]).filter(Boolean);
 
   function toggleCompare(id: string) {
@@ -224,6 +245,23 @@ export function CompareWorkspace({ trip, onChange, currency }: { trip: Trip; onC
         </div>
       ) : (
         <p className="mt-3 rounded-3xl border border-dashed border-ink/15 p-6 text-center text-sm text-ink-muted">Nothing matches. Clear a filter or search for something else.</p>
+      )}
+      {items && (
+        <p className="mt-3 flex items-start gap-2 text-xs text-ink-muted">
+          {online === null ? (
+            <>
+              <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-pulse text-savanna-600" /> Checking operators&apos; own websites (Bonfire Adventures, SafariBookings, TripAdvisor and others) for packages on this route. They&apos;ll appear in the list above. This can take a minute the first time.
+            </>
+          ) : online.length ? (
+            <>
+              <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Includes {online.length} package{online.length === 1 ? "" : "s"} found on operators&apos; websites, marked &quot;Found online&quot;. Prices are as published there; you book on their site.
+            </>
+          ) : onlineNote ? (
+            <>
+              <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {onlineNote}
+            </>
+          ) : null}
+        </p>
       )}
       {items && !affiliates.viator && !affiliates.getyourguide && (
         <p className="mt-3 flex items-start gap-2 text-xs text-ink-muted">
@@ -373,61 +411,60 @@ function CompareTable({ items, trip, places, totalFor, currency, onUse, onBook }
     { label: "Type", cell: (i) => KIND_LABEL[i.kind] },
     { label: "From", cell: (i) => `${i.provider} · ${SOURCE_LABEL[i.source]}${i.sponsored ? " · Sponsored" : ""}${i.demo ? " · Sample" : ""}` },
     { label: `For your group (${trip.travelers})`, cell: (i, k) => <span className={cn("font-display font-bold", totals[k] === cheapest && "text-savanna-700")}>{totals[k] ? money(totals[k]!, currency) : i.priceText ?? "On request"}{totals[k] === cheapest && items.length > 1 ? " · lowest" : ""}</span> },
-    { label: "Price", cell: (i) => (i.price ? `${i.priceText ?? money(i.price, currency)} ${UNIT_TEXT[i.unit] ?? i.unit}` : "—") },
+    { label: "Price", cell: (i) => (i.price ? (i.priceText && /\b(pp|per|each|pax)\b/i.test(i.priceText) ? i.priceText : `${i.priceText ?? money(i.price, currency)} ${UNIT_TEXT[i.unit] ?? i.unit}`) : i.priceText ?? "—") },
     { label: "Length", cell: (i) => i.durationText ?? (i.days ? `${i.days} days` : "—") },
-    { label: "Your stops covered", cell: (i) => places.map((p) => (i.places.includes(p) ? `✓ ${PLACE_BY_ID[p].name}` : `✗ ${PLACE_BY_ID[p].name}`)).join("  ") },
+    { label: "Your stops covered", cell: (i) => <ul className="space-y-0.5">{places.map((p) => <li key={p} className={i.places.includes(p) ? "" : "text-ink-muted line-through"}>{i.places.includes(p) ? "✓ " : ""}{PLACE_BY_ID[p]?.name ?? p}</li>)}</ul> },
     { label: "Included", cell: (i) => (i.includes.length ? <ul className="list-disc space-y-0.5 pl-4">{i.includes.map((x) => <li key={x}>{x}</li>)}</ul> : "—") },
     { label: "Not included", cell: (i) => (i.excludes.length ? i.excludes.join(", ") : "—") },
     { label: "Rating", cell: (i) => (i.rating ? <span className={cn(i.rating === best && items.length > 1 && "font-semibold text-savanna-700")}>{i.rating.toFixed(1)}{i.reviews ? ` (${i.reviews} reviews)` : ""}</span> : "—") },
     { label: "Cancellation / terms", cell: (i) => i.cancellation ?? "Ask the provider" },
     { label: "Languages", cell: (i) => i.languages?.join(", ") || "—" },
   ];
+  // GSMArena-style: on phones each spec's label sits on its own line above the options, so all
+  // options stay side by side; from tablet up the labels move into a column on the left.
+  const cols = "grid grid-cols-[repeat(var(--n),minmax(0,1fr))] gap-x-2 sm:grid-cols-[9rem_repeat(var(--n),minmax(0,1fr))] sm:gap-x-3";
+  const vars = { "--n": items.length } as React.CSSProperties;
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
-        <thead>
-          <tr>
-            <th className="w-40" />
-            {items.map((i) => (
-              <th key={i.id} className="p-2 text-left align-top font-normal">
-                {i.image && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={img(i.image)} alt="" className="mb-2 h-24 w-full rounded-2xl object-cover" />
-                )}
-                <Badges i={i} />
-                <p className="mt-1 font-display font-bold leading-snug">{i.title}</p>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.label}>
-              <td className="border-t border-ink/[0.06] p-2 align-top text-xs font-semibold uppercase tracking-wide text-ink-muted">{r.label}</td>
-              {items.map((i, k) => (
-                <td key={i.id} className="border-t border-ink/[0.06] p-2 align-top">
-                  {r.cell(i, k)}
-                </td>
-              ))}
-            </tr>
+    <div className="text-[13px] sm:text-sm">
+      <div className={cols} style={vars}>
+        <div className="hidden sm:block" />
+        {items.map((i) => (
+          <div key={i.id} className="min-w-0 pb-2">
+            {i.image && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={img(i.image)} alt="" className="mb-2 h-16 w-full rounded-xl object-cover sm:h-24 sm:rounded-2xl" />
+            )}
+            <div className="hidden sm:block">
+              <Badges i={i} />
+            </div>
+            <p className="mt-1 line-clamp-3 font-display text-xs font-bold leading-snug sm:text-sm">{i.title}</p>
+            <p className="truncate text-[11px] text-ink-muted sm:hidden">{i.provider}</p>
+          </div>
+        ))}
+      </div>
+      {rows.map((r) => (
+        <div key={r.label} className={cn(cols, "border-t border-ink/[0.06] py-2")} style={vars}>
+          <div className="col-span-full pb-1 text-[10px] font-semibold uppercase tracking-wide text-ink-muted sm:col-span-1 sm:pb-0 sm:text-xs">{r.label}</div>
+          {items.map((i, k) => (
+            <div key={i.id} className="min-w-0 break-words">
+              {r.cell(i, k)}
+            </div>
           ))}
-          <tr>
-            <td />
-            {items.map((i) => (
-              <td key={i.id} className="p-2">
-                <div className="flex flex-wrap gap-1.5">
-                  <button onClick={() => onUse(i)} className="h-10 rounded-full bg-savanna-500 px-4 font-display text-xs font-semibold text-white">
-                    Use in my trip
-                  </button>
-                  <button onClick={() => onBook(i)} className="h-10 rounded-full bg-ink px-4 font-display text-xs font-semibold text-white">
-                    Book
-                  </button>
-                </div>
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
+        </div>
+      ))}
+      <div className={cn(cols, "sticky bottom-0 border-t border-ink/[0.06] bg-white py-3")} style={vars}>
+        <div className="hidden sm:block" />
+        {items.map((i) => (
+          <div key={i.id} className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:flex-wrap">
+            <button onClick={() => onUse(i)} className="h-10 rounded-full bg-savanna-500 px-3 font-display text-xs font-semibold text-white sm:px-4">
+              Use in my trip
+            </button>
+            <button onClick={() => onBook(i)} className="h-10 rounded-full bg-ink px-3 font-display text-xs font-semibold text-white sm:px-4">
+              Book
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

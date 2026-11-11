@@ -29,6 +29,8 @@ export interface VRScene {
   premium?: boolean;
   /** creator credit (kept for attribution in data/exports) */
   credit: string;
+  /** a regular (not 360°) 4K walking video: shown full screen, labelled "4K walk" */
+  flat?: boolean;
 }
 
 export interface VRDestination {
@@ -51,6 +53,7 @@ export interface VRDestination {
 }
 
 const yt = (id: string, start?: number): SceneSource => ({ kind: "youtube", id, start });
+/* 4K first-person walking videos (not 360°), checked as embeddable on 2026-11-11 */
 
 export const VR_DESTINATIONS: VRDestination[] = [
   {
@@ -81,6 +84,7 @@ export const VR_DESTINATIONS: VRDestination[] = [
       { id: "mara-plains", mode: "drive", spot: "Through the plains", title: "Driving across the Mara plains", time: "day", source: yt("M7lFhMLBFRs"), minutes: 2, credit: "Rob The Ranger Wildlife Videos" },
       { id: "mara-ele-drive", mode: "drive", spot: "Elephant crossing", title: "Elephants beside the vehicle", time: "day", source: yt("YAh2FJXjhFI"), minutes: 1, credit: "Roho Ya Chui" },
       { id: "mara-home", mode: "walk", spot: "A Maasai home", title: "Inside a Maasai home (8K)", time: "day", source: yt("63P5Se65m-Q", 3), minutes: 3, premium: true, credit: "Drone video Latvia" },
+      { id: "mara-walk-4k", mode: "walk", spot: "Walking safari, Ol Kinyei", title: "On foot with a Maasai guide (4K walk)", time: "day", source: yt("NlhpU_YM3gY", 5), minutes: 5, credit: "Gamewatchers Safaris and Porini Camps", flat: true },
     ],
   },
   {
@@ -165,6 +169,8 @@ export const VR_DESTINATIONS: VRDestination[] = [
       { id: "naiv-boat", mode: "drive", spot: "Lake boat", title: "Boat safari on Lake Naivasha", time: "day", source: yt("Tf8VyaUi_NU"), minutes: 1, credit: "MIK" },
       { id: "naiv-gorge", mode: "walk", spot: "Hell's Gate", title: "Inside Hell's Gate", time: "day", source: yt("hF_poWaX1QI", 2), minutes: 2, credit: "J&K Lovett" },
       { id: "naiv-heli", mode: "fly", spot: "Rift Valley by helicopter", title: "Helicopter over the Rift Valley (filmed in Tanzania)", time: "day", source: yt("sV1O_5RLdK0", 5), minutes: 6, credit: "andal033" },
+      { id: "nai-crescent-walk", mode: "walk", spot: "Crescent Island", title: "Walking among giraffe and zebra on Crescent Island (4K walk)", time: "day", source: yt("e7vGNPOIcwg", 20), minutes: 17, credit: "EmilyOnSafari", flat: true },
+      { id: "nai-hellsgate-walk", mode: "walk", spot: "Hell's Gate gorge", title: "On foot inside Hell's Gate gorge (4K walk)", time: "day", source: yt("kQ_Cbu5hqvw", 15), minutes: 17, credit: "The Kenyan Historian", flat: true },
     ],
   },
   {
@@ -230,6 +236,7 @@ export const VR_DESTINATIONS: VRDestination[] = [
       { id: "lamu-boat", mode: "drive", spot: "Manda to Lamu", title: "Motorboat across the channel", time: "day", source: yt("hgsPW-NclvI", 5), minutes: 7, credit: "bluesnyc" },
       { id: "lamu-waterfront", mode: "walk", spot: "Waterfront", title: "Along the Lamu waterfront", time: "day", source: yt("GSZDtHCaiQM", 5), minutes: 8, credit: "bluesnyc" },
       { id: "lamu-donkeys", mode: "walk", spot: "Donkey lanes", title: "Land of 3,000 donkeys", time: "day", source: yt("A-_6KqgBErM"), minutes: 3, premium: true, credit: "bluesnyc" },
+      { id: "lamu-pov-walk", mode: "walk", spot: "Lamu Old Town lanes", title: "The sounds of Lamu: a POV walk (4K walk)", time: "day", source: yt("0_J5KMtOngk", 5), minutes: 22, credit: "Laura Bornstein", flat: true },
     ],
   },
   {
@@ -254,6 +261,8 @@ export const VR_DESTINATIONS: VRDestination[] = [
       { id: "fj-safari", mode: "walk", spot: "Fort tour", title: "Full Fort Jesus VR tour", time: "day", source: yt("-lP3AggvRfM", 20), minutes: 19, premium: true, credit: "Makavazi Go" },
       { id: "fj-marina", mode: "view", spot: "La Marina, Mtwapa Creek", title: "La Marina on Mtwapa Creek", time: "day", source: yt("ojrVNX_jm9I", 5), minutes: 7, credit: "Virtual Reality 360 Life" },
       { id: "fj-bamburi", mode: "drive", spot: "Restored quarry, Takaungu", title: "Driving through restored quarry land near Takaungu", time: "day", source: yt("gAB8Yw3fTzU"), minutes: 3, credit: "Garden of Knowledge" },
+      { id: "msa-oldtown-walk", mode: "walk", spot: "Mombasa Old Town", title: "Mombasa's white and blue Old Town (4K walk)", time: "day", source: yt("MeCU2JFl-2k", 20), minutes: 49, credit: "Anthony Walks", flat: true },
+      { id: "msa-nyali-walk", mode: "walk", spot: "Nyali coast", title: "Nyali beachfront and coast road (4K walk)", time: "day", source: yt("WsvT0zmT3iQ", 20), minutes: 34, credit: "Anthony Walks", flat: true },
     ],
   },
   {
@@ -282,6 +291,8 @@ export const VR_DESTINATIONS: VRDestination[] = [
       { id: "diani-road", mode: "drive", spot: "Coast road", title: "On the road from Diani", time: "day", source: yt("ZWwAwursj-0"), minutes: 1, credit: "Garden of Knowledge" },
       { id: "diani-ukunda", mode: "drive", spot: "Ukunda town", title: "Driving through Ukunda", time: "day", source: yt("zPPmZ8FSHak"), minutes: 4, credit: "Garden of Knowledge" },
       { id: "diani-shimba", mode: "drive", spot: "To Shimba Hills", title: "Diani to the Shimba Hills", time: "day", source: yt("POBT9AFC-V0"), minutes: 1, credit: "Garden of Knowledge" },
+      { id: "diani-beach-walk", mode: "walk", spot: "Along the white sand", title: "Walking Diani Beach (4K walk)", time: "day", source: yt("_-BdUwX7WG4", 20), minutes: 44, credit: "Anthony Walks", flat: true },
+      { id: "diani-town-walk", mode: "walk", spot: "Diani Beach Road", title: "Diani's streets and shops (4K walk)", time: "day", source: yt("XpKrUu-SQBg", 20), minutes: 43, credit: "Anthony Walks", flat: true },
     ],
   },
   {
@@ -303,6 +314,7 @@ export const VR_DESTINATIONS: VRDestination[] = [
       { id: "wat-creek", mode: "walk", spot: "Mida Creek", title: "The Crab Shack on Mida Creek", time: "day", source: yt("aTdoCDF_XnQ", 5), minutes: 4, credit: "Garden of Knowledge" },
       { id: "wat-flight", mode: "fly", spot: "Beachfront", title: "Flying over Watamu Bay", time: "day", source: yt("xxmBr1TptUY"), minutes: 1, credit: "Hutchery360" },
       { id: "wat-drone", mode: "fly", spot: "Watamu beach", title: "Drone flight over Watamu beach", time: "day", source: yt("kEW9ZrsAD0E", 10), minutes: 11, credit: "Lyosi Mwedekeli" },
+      { id: "watamu-walk", mode: "walk", spot: "Town to ocean", title: "Walking Watamu, from town to the beach (4K walk)", time: "day", source: yt("FH1nnGVn5LA", 20), minutes: 26, credit: "Anthony Walks", flat: true },
     ],
   },
   {
@@ -332,6 +344,9 @@ export const VR_DESTINATIONS: VRDestination[] = [
       { id: "nbo-matatu", mode: "drive", spot: "Matatu ride", title: "Riding a Nairobi matatu", time: "day", source: yt("8IwUCbyUQwE", 30), minutes: 17, credit: "Reha Yurdakul" },
       { id: "nbo-bypass", mode: "drive", spot: "Southern Bypass", title: "Southern Bypass highway", time: "day", source: yt("BFSg2_VTWf4", 20), minutes: 12, premium: true, credit: "Cleaning The Airwaves" },
       { id: "nbo-karen", mode: "fly", spot: "Over Karen", title: "Drone over Karen", time: "day", source: yt("Jn2egQYEq_I", 5), minutes: 6, credit: "Lyosi Mwedekeli" },
+      { id: "nbo-city-walk", mode: "walk", spot: "Nairobi CBD", title: "Walking Africa's fastest-growing capital (4K walk)", time: "day", source: yt("yBncZLoUjZs", 20), minutes: 41, credit: "Anthony Walks", flat: true },
+      { id: "nbo-safari-walk", mode: "walk", spot: "Nairobi Safari Walk", title: "Nairobi Safari Walk: animals on the boardwalk (4K walk)", time: "day", source: yt("ia1_TRBfQMU", 10), minutes: 32, credit: "One Man Wolf Pack", flat: true },
+      { id: "nbo-park-trek", mode: "walk", spot: "Nairobi National Park", title: "Trekking safari in Nairobi National Park (4K)", time: "day", source: yt("io_4aM9V3ng", 10), minutes: 25, credit: "DotGreen", flat: true },
     ],
   },
   {

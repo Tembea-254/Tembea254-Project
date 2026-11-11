@@ -94,3 +94,21 @@ export function defaultQuantity(item: Pick<CatalogItem, "unit">, nights: number)
   if (item.unit === "hour") return 4;
   return 1;
 }
+
+/** Makes any listing safe to render: online and affiliate data can miss fields. */
+export function normalizeItem(i: Partial<CatalogItem> & { id: string }): CatalogItem {
+  return {
+    ...i,
+    source: i.source ?? "web",
+    kind: i.kind ?? "tour",
+    title: String(i.title ?? "Untitled"),
+    provider: String(i.provider ?? ""),
+    places: Array.isArray(i.places) ? i.places.filter(Boolean) : [],
+    unit: i.unit ?? "person",
+    price: typeof i.price === "number" && Number.isFinite(i.price) && i.price > 0 ? i.price : undefined,
+    includes: Array.isArray(i.includes) ? i.includes.map(String).filter(Boolean) : [],
+    excludes: Array.isArray(i.excludes) ? i.excludes.map(String).filter(Boolean) : [],
+    languages: Array.isArray(i.languages) ? i.languages : undefined,
+    book: i.book ?? { mode: "external", go: "#" },
+  } as CatalogItem;
+}

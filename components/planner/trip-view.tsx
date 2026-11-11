@@ -85,6 +85,15 @@ export function TripView({ id }: { id: string }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mapOpenMobile, setMapOpenMobile] = useState(false);
+  // Only one map at a time: the side map on desktop, the toggled one on phones.
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -120,8 +129,8 @@ export function TripView({ id }: { id: string }) {
     } catch {
       /* user cancelled */
     }
-    await navigator.clipboard.writeText(text);
-    setToast("Itinerary copied — paste it into WhatsApp or email");
+    const ok = await navigator.clipboard.writeText(text).then(() => true, () => false);
+    setToast(ok ? "Itinerary copied — paste it into WhatsApp or email" : "Couldn't copy. Use Download PDF instead.");
   }
 
   /** Saves the trip to the account so its read-only link (/t/id) works, and returns that link. */
@@ -219,7 +228,7 @@ export function TripView({ id }: { id: string }) {
                         { icon: Link2, label: "Copy share link", run: copyShareLink },
                         { icon: Printer, label: "Print this page", run: () => window.print() },
                         { icon: CalendarDays, label: "Add to calendar (.ics)", run: () => downloadICS(trip) },
-                        { icon: Copy, label: "Copy as text", run: async () => { await navigator.clipboard.writeText(tripAsText(trip)); setToast("Copied to clipboard"); } },
+                        { icon: Copy, label: "Copy as text", run: async () => { const ok = await navigator.clipboard.writeText(tripAsText(trip)).then(() => true, () => false); setToast(ok ? "Copied to clipboard" : "Couldn't copy on this device"); } },
                         { icon: FileJson, label: "Download data (.json)", run: () => downloadJSON(trip) },
                       ].map((o) => (
                         <button
@@ -317,7 +326,7 @@ export function TripView({ id }: { id: string }) {
 
       <div className={cn("container-page grid gap-6 pt-6", showMap && "lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_460px]")}>
         <div className="min-w-0">
-          {showMap && mapOpenMobile && (
+          {showMap && mapOpenMobile && !wide && (
             <div className="mb-6 h-72 overflow-hidden rounded-3xl shadow-card lg:hidden">
               <RouteMap stops={trip.stops} days={trip.days} travelers={trip.travelers} activePlaceId={activePlace} />
             </div>
@@ -344,7 +353,7 @@ export function TripView({ id }: { id: string }) {
         {showMap && (
         <aside className="no-print hidden lg:block">
           <div className="sticky top-20 h-[calc(100dvh-7rem)] overflow-hidden rounded-3xl shadow-card">
-            <RouteMap stops={trip.stops} days={trip.days} travelers={trip.travelers} activePlaceId={activePlace} />
+            {wide && <RouteMap stops={trip.stops} days={trip.days} travelers={trip.travelers} activePlaceId={activePlace} />}
           </div>
         </aside>
         )}

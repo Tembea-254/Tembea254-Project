@@ -67,7 +67,7 @@ export function BlogArticle({ post: p, more }: { post: BlogPost; more: BlogPost[
                   <SOCIAL_ICONS.facebook className="h-4 w-4" />
                 </a>
                 <button
-                  onClick={() => (navigator.share ? navigator.share({ title: p.title, url }).catch(() => {}) : navigator.clipboard.writeText(url))}
+                  onClick={() => (navigator.share ? navigator.share({ title: p.title, url }).catch(() => {}) : navigator.clipboard.writeText(url).catch(() => {}))}
                   className="grid h-9 w-9 place-items-center rounded-full border border-ink/10"
                   aria-label="Share"
                 >

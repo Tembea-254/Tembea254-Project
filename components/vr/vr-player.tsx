@@ -299,7 +299,7 @@ export function VRPlayer({ destination: d }: { destination: VRDestination }) {
               {simulatedNight ? "Dusk mode" : scene.time === "day" ? "Day" : "Night"}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5">
-              <Orbit className="h-3 w-3" /> 360°
+              <Orbit className="h-3 w-3" /> {scene.flat ? "4K walk" : "360°"}
             </span>
             {scene.premium && (
               <span className="inline-flex items-center gap-1 rounded-full bg-ochre-400 px-2 py-0.5 font-semibold text-ink">

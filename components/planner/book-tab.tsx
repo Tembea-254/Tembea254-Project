@@ -6,7 +6,6 @@ import { BUFFER_PCT } from "@/lib/planner/engine";
 import type { Trip } from "@/lib/planner/types";
 import { money, type Currency } from "@/lib/utils";
 import { CompareWorkspace } from "./compare-workspace";
-import { LivePackages } from "./live-offers";
 
 /**
  * Compare & book. The trip priced as planned, then a workspace to search everything bookable at the
@@ -38,7 +37,6 @@ export function BookTab({ trip, onChange, currency }: { trip: Trip; onChange: (t
 
       <CompareWorkspace trip={trip} onChange={onChange} currency={currency} />
 
-      <LivePackages trip={trip} currency={currency} />
     </div>
   );
 }

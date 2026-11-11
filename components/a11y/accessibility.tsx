@@ -117,7 +117,7 @@ function flash(el: HTMLElement) {
 }
 
 export const VOICE_EXAMPLES: [string, string][] = [
-  ["Go to planner", "Open any page: home, dashboard, planner, VR, translator, marketplace, community, blog, profile"],
+  ["Go to planner", "Open any page: home, dashboard, planner, VR, translator, community, blog, profile"],
   ["Scroll down / up", "Add “a little” or “a lot”. Also “top” and “bottom”"],
   ["Click Hire", "Press any button or link by its name"],
   ["Type 5 days in Diani", "Writes into the selected box, then say “submit”"],

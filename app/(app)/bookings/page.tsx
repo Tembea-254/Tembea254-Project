@@ -63,8 +63,8 @@ export default async function BookingsPage() {
         ) : (
           <Empty text="Nothing hired yet." />
         )}
-        <Link href="/marketplace" className="mt-3 inline-block text-sm font-semibold text-savanna-700">
-          Browse guides and drivers
+        <Link href="/planner" className="mt-3 inline-block text-sm font-semibold text-savanna-700">
+          Find guides and drivers in the planner
         </Link>
       </Panel>
     </div>

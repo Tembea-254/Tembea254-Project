@@ -1,3 +1,4 @@
+import { MARKETPLACE_ON } from "@/lib/features";
 import Link from "next/link";
 import { BadgeCheck, Briefcase, Camera, CheckCircle2, Clock, HandCoins, Hourglass, ListChecks, Send, Smartphone, Wallet, XCircle } from "lucide-react";
 import { joinScouts } from "./actions";
@@ -66,9 +67,9 @@ export default async function ScoutsPage({ searchParams }: { searchParams: { tab
         ))}
       </nav>
       <Flash ok={searchParams.ok} error={searchParams.error} />
-      <Link href="/marketplace/join" className="mb-5 flex items-center justify-between gap-3 rounded-3xl bg-white p-4 text-sm shadow-card hover:shadow-lift">
+      <Link href={MARKETPLACE_ON ? "/marketplace/join" : "/marketplace/join/creator"} className="mb-5 flex items-center justify-between gap-3 rounded-3xl bg-white p-4 text-sm shadow-card hover:shadow-lift">
         <span>
-          <b className="font-display">Want to earn another way?</b> <span className="text-ink-muted">Sell products, offer tours and services, or host paid live walks as a Tembea254 creator.</span>
+          <b className="font-display">Want to earn another way?</b> <span className="text-ink-muted">{MARKETPLACE_ON ? "Sell products, offer tours and services, or host paid live walks as a Tembea254 creator." : "Host paid live walks as a Tembea254 creator."}</span>
         </span>
         <span className="shrink-0 font-display font-semibold text-savanna-700">Apply</span>
       </Link>

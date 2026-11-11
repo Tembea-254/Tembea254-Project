@@ -1,3 +1,4 @@
+import { MARKETPLACE_ON } from "@/lib/features";
 /**
  * Turns what someone said into one clear action. Pure function, so it's easy to test.
  * Rules are checked in a fixed order, most specific first, so "sign up" never scrolls up
@@ -28,7 +29,7 @@ export const PAGES: { path: string; name: string; words: RegExp }[] = [
   { path: "/planner", name: "trip planner", words: /\b(planner|plan(ning)?|itinerar(y|ies)|my trips?|trip planner|ai planner)\b/ },
   { path: "/vr", name: "VR experiences", words: /\b(vr|v r|virtual( reality| tours?)?|360|three sixty|previews?|experiences)\b/ },
   { path: "/translator", name: "translator", words: /\b(translat\w*|languages?|swahili)\b/ },
-  { path: "/marketplace", name: "marketplace", words: /\b(market ?place|market|hire|drivers?|guides?|photographers?)\b/ },
+  ...(MARKETPLACE_ON ? [{ path: "/marketplace", name: "marketplace", words: /\b(market ?place|market|hire|drivers?|guides?|photographers?)\b/ }] : []),
   { path: "/community", name: "community", words: /\b(community|social|feed|posts?)\b/ },
   { path: "/blog", name: "blog", words: /\b(blog|articles?|stories|travel guides?)\b/ },
   { path: "/safety", name: "safety", words: /\b(safety|sos|alerts?|emergency)\b/ },

@@ -1,5 +1,6 @@
 "use client";
 
+import { MARKETPLACE_ON } from "@/lib/features";
 import Link from "next/link";
 import { partnerEnquiry } from "@/app/(marketing)/partners/actions";
 import { useSearchParams } from "next/navigation";
@@ -131,7 +132,7 @@ const FEATURE_MENU = [
     items: [
       { icon: ShieldCheck, label: "Safety band & SOS", href: "/safety" },
       { icon: Users, label: "Travel community", href: "/community" },
-      { icon: ShoppingBag, label: "Marketplace", href: "/marketplace" },
+      ...(MARKETPLACE_ON ? [{ icon: ShoppingBag, label: "Marketplace", href: "/marketplace" }] : []),
     ],
   },
 ];
@@ -470,7 +471,7 @@ const TOOLS = [
   { icon: Wallet, title: "Budget tracker", text: "Park fees, stays and food estimated; split costs with your crew.", tone: "text-maasai-500 bg-maasai-50" },
   { icon: Languages, title: "Translator", text: "Swahili, Kikuyu, Luo, Maa, Kalenjin and 12 world languages.", tone: "text-ochre-600 bg-ochre-50" },
   { icon: Radio, title: "Safety band", text: "A wearable with SOS, geofencing and live location for guides.", tone: "text-maasai-500 bg-maasai-50" },
-  { icon: ShoppingBag, title: "Marketplace", text: "Hire verified drivers, guides, photographers and artists ahead of time.", tone: "text-dusk-500 bg-dusk-50" },
+  ...(MARKETPLACE_ON ? [{ icon: ShoppingBag, title: "Marketplace", text: "Hire verified drivers, guides, photographers and artists ahead of time.", tone: "text-dusk-500 bg-dusk-50" }] : []),
   { icon: Users, title: "Community", text: "Share trips, follow travellers and copy routes you love.", tone: "text-savanna-600 bg-savanna-50" },
   { icon: Sparkles, title: "AI planning", text: "Describe your trip; the planner builds the whole thing.", tone: "text-dusk-500 bg-dusk-50" },
 ];
@@ -522,7 +523,7 @@ function Toolkit() {
 /* Showcase — sticky scroll storytelling with live mockups             */
 /* ================================================================== */
 
-const STORIES = [
+const ALL_STORIES = [
   {
     key: "planner",
     eyebrow: "AI trip planner",
@@ -596,6 +597,8 @@ const STORIES = [
     icon: ShoppingBag,
   },
 ];
+
+const STORIES = ALL_STORIES.filter((s) => MARKETPLACE_ON || s.key !== "market");
 
 function Showcase() {
   const tryIt = useTry();
@@ -901,7 +904,7 @@ function FinalCTA() {
               { icon: Route, t: "Route planning" },
               { icon: Users, t: "Plan with friends" },
               { icon: Orbit, t: "Free 360° spots" },
-              { icon: ShoppingBag, t: "Verified local vendors" },
+              { icon: ShoppingBag, t: MARKETPLACE_ON ? "Verified local vendors" : "Compare & book operators" },
             ].map((x) => (
               <li key={x.t} className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 font-display text-sm font-semibold shadow-card">
                 <x.icon className="h-4 w-4 text-savanna-600" /> {x.t}
@@ -925,7 +928,7 @@ function FinalCTA() {
 export function Footer() {
   const tryIt = useTry();
   const cols: { title: string; links: [string, string][] }[] = [
-    { title: "Features", links: [["AI trip planner", "/planner"], ["360° previews", "/vr"], ["Translator", "/translator"], ["Community", "/community"], ["Marketplace", "/marketplace"]] },
+    { title: "Features", links: [["AI trip planner", "/planner"], ["360° previews", "/vr"], ["Translator", "/translator"], ["Community", "/community"], ...(MARKETPLACE_ON ? ([["Marketplace", "/marketplace"]] as [string, string][]) : [])] },
     { title: "Discover", links: VR_DESTINATIONS.slice(0, 6).map((d) => [d.name, `/vr/${d.slug}`] as [string, string]) },
     { title: "Company", links: [["Blog", "/blog"], ["Advertise with us", "/partners"], ["Tembea Scouts: earn filming", "/scouts"], ["For business", "/#business"], ["What clients say", "/#reviews"]] },
   ];

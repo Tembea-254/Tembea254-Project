@@ -1,4 +1,5 @@
 "use client";
+import { MARKETPLACE_ON } from "@/lib/features";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -211,7 +212,7 @@ function MobileMore({ access }: { access?: WorkspaceAccess }) {
 }
 
 function MobileNav({ pathname }: { pathname: string }) {
-  const items = NAV.filter((n) => ["/dashboard", "/vr", "/planner", "/community", "/marketplace"].includes(n.href));
+  const items = NAV.filter((n) => ["/dashboard", "/vr", "/planner", "/community", MARKETPLACE_ON ? "/marketplace" : "/translator"].includes(n.href));
   return (
     <nav className="fixed inset-x-3 bottom-3 z-40 rounded-3xl border border-ink/[0.06] bg-white/95 p-1.5 shadow-lift backdrop-blur-xl lg:hidden">
       <ul className="grid grid-cols-5">

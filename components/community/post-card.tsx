@@ -1,4 +1,5 @@
 "use client";
+import { MARKETPLACE_ON } from "@/lib/features";
 
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -124,6 +125,7 @@ export function MediaStrip({ media, alt, onDoubleTap, onView }: { media: Media[]
 /** "Shop this" / "Book this" — the listing tagged in a post. */
 export function TaggedListing({ p, dark }: { p: NonNullable<FeedPost["product"]>; dark?: boolean }) {
   const service = p.kind === "service";
+  if (!MARKETPLACE_ON) return null;
   return (
     <Link href={`/marketplace/product/${p.id}`} className={cn("flex items-center gap-3 rounded-2xl p-2 pr-3 transition-colors", dark ? "bg-white/15 text-white backdrop-blur hover:bg-white/25" : "bg-sand-50 hover:bg-sand-100")}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -205,7 +207,7 @@ export function PostCard({ post, run, flash, onChange, onRemove }: { post: FeedP
               {post.author.name.replace(" (demo)", "")}
             </Link>
             {post.author.team && <ShieldCheck className="h-4 w-4 text-savanna-600" aria-label="Tembea team" />}
-            {post.author.seller && (
+            {MARKETPLACE_ON && post.author.seller && (
               <Link href={`/marketplace/store/${post.author.seller}`} className="inline-flex items-center gap-0.5 rounded-full bg-ochre-50 px-1.5 py-0.5 text-[10px] font-semibold text-ochre-700">
                 <Store className="h-3 w-3" /> Seller
               </Link>

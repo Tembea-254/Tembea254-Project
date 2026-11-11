@@ -1,4 +1,5 @@
 "use client";
+import { MARKETPLACE_ON } from "@/lib/features";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -228,7 +229,7 @@ function SearchPanel({ onClose }: { onClose: () => void }) {
                 ))}
               </section>
             )}
-            {r.listings.length > 0 && (
+            {MARKETPLACE_ON && r.listings.length > 0 && (
               <section>
                 <p className="mb-2 font-display text-xs font-semibold uppercase tracking-wider text-ink-muted">In the marketplace</p>
                 {r.listings.map((p) => (

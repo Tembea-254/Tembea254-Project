@@ -1,4 +1,5 @@
 "use client";
+import { MARKETPLACE_ON } from "@/lib/features";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -61,7 +62,7 @@ export function ProfileView({ user, counts, store, mine, following }: Props) {
             {stat(counts.likes, "likes")}
           </div>
           {user.bio && <p className="mt-3 max-w-lg whitespace-pre-line text-[15px]">{user.bio}</p>}
-          {store && (
+          {MARKETPLACE_ON && store && (
             <Link href={`/marketplace/store/${store.slug}`} className="mt-3 inline-flex items-center gap-2 rounded-2xl bg-ochre-50 px-3 py-2 text-sm font-semibold text-ochre-700 hover:bg-ochre-100">
               {store.sellerType === "pro" ? <CalendarCheck className="h-4 w-4" /> : <Store className="h-4 w-4" />}
               {store.sellerType === "pro" ? "Book" : "Shop"} {store.storeName}

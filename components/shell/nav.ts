@@ -1,3 +1,4 @@
+import { MARKETPLACE_ON } from "@/lib/features";
 import { Camera, Clapperboard, Handshake, HandCoins, Headset, Home, Languages, LayoutDashboard, Route, ShieldAlert, ShoppingBag, Store, UserRound, Users, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
@@ -9,7 +10,7 @@ export interface NavItem {
 }
 
 /** Exact tab order from the product brief. */
-export const NAV: NavItem[] = [
+export const NAV: NavItem[] = ([
   { href: "/dashboard", label: "Dashboard", short: "Home", icon: Home },
   { href: "/vr", label: "VR Experiences", short: "VR", icon: Headset },
   { href: "/planner", label: "AI Trip Planner", short: "Plan", icon: Route },
@@ -18,7 +19,7 @@ export const NAV: NavItem[] = [
   { href: "/marketplace", label: "Marketplace", short: "Market", icon: ShoppingBag },
   { href: "/safety", label: "Safety & Alerts", short: "Safety", icon: ShieldAlert },
   { href: "/profile", label: "Profile & Settings", short: "Profile", icon: UserRound },
-];
+] as NavItem[]).filter((n) => MARKETPLACE_ON || n.href !== "/marketplace");
 
 export interface WorkspaceLink extends NavItem {
   /** "In review" style pill for applications that are not approved yet */
@@ -33,9 +34,12 @@ export interface WorkspaceLink extends NavItem {
 export function workspaceLinks(a: { seller: string; creator: string; admin: boolean; partner?: boolean } | undefined): WorkspaceLink[] {
   if (!a) return [];
   const out: WorkspaceLink[] = [];
-  if (a.seller === "verified" || a.seller === "suspended") out.push({ href: "/vendor", label: "Seller centre", short: "Sell", icon: Store });
+  if (!MARKETPLACE_ON) {
+    /* seller centre hidden while the marketplace is off */
+  } else if (a.seller === "verified" || a.seller === "suspended") out.push({ href: "/vendor", label: "Seller centre", short: "Sell", icon: Store });
   else if (a.seller === "pending") out.push({ href: "/marketplace/join/seller", label: "Seller centre", short: "Sell", icon: Store, pill: "In review" });
-  if (a.creator === "approved" || a.admin) out.push({ href: "/creators", label: "Creator studio", short: "Create", icon: Clapperboard });
+  if (a.creator === "approved" || a.admin)
+    out.push({ href: "/creators", label: "Creator studio", short: "Create", icon: Clapperboard });
   else if (a.creator === "pending") out.push({ href: "/marketplace/join/creator", label: "Creator studio", short: "Create", icon: Clapperboard, pill: "In review" });
   if (a.partner) out.push({ href: "/partner", label: "Partner dashboard", short: "Partner", icon: Handshake });
   if (a.admin) out.push({ href: "/admin", label: "Admin control centre", short: "Admin", icon: LayoutDashboard, dark: true });

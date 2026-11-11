@@ -1,4 +1,5 @@
 "use client";
+import { MARKETPLACE_ON } from "@/lib/features";
 
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -153,7 +154,7 @@ function StoryViewer({ groups, start, onClose }: { groups: StoryGroup[]; start: 
                 <MapPin className="h-3.5 w-3.5" /> {place.name}
               </Link>
             )}
-            {item.productId && (
+            {MARKETPLACE_ON && item.productId && (
               <Link href={`/marketplace/product/${item.productId}`} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-ink">
                 <ShoppingBag className="h-3.5 w-3.5" /> See what's tagged
               </Link>

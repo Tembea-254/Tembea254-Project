@@ -1,3 +1,4 @@
+import { MARKETPLACE_ON } from "@/lib/features";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Glasses, Route, ShoppingBag } from "lucide-react";
@@ -33,7 +34,7 @@ export default function PlacePage({ params }: { params: { id: string } }) {
             <Link href="/vr" className="inline-flex h-10 items-center gap-2 rounded-full bg-white/15 px-4 font-display text-sm font-semibold ring-1 ring-white/30 backdrop-blur">
               <Glasses className="h-4 w-4" /> Preview in 360°
             </Link>
-            <Link href="/marketplace?type=service" className="inline-flex h-10 items-center gap-2 rounded-full bg-white/15 px-4 font-display text-sm font-semibold ring-1 ring-white/30 backdrop-blur">
+            <Link href={MARKETPLACE_ON ? "/marketplace?type=service" : "/planner"} className="inline-flex h-10 items-center gap-2 rounded-full bg-white/15 px-4 font-display text-sm font-semibold ring-1 ring-white/30 backdrop-blur">
               <ShoppingBag className="h-4 w-4" /> Guides & drivers
             </Link>
           </div>

@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { groupPrice, SOURCE_LABEL, UNIT_TEXT, type CatalogItem } from "@/lib/catalog-types";
 import { PLACE_BY_ID } from "@/lib/data/places";
+import { bookingPlaceUrl } from "@/lib/data/stays";
 import { addDays, cn, money, todayISO, type Currency } from "@/lib/utils";
 
 const field = "h-11 w-full rounded-2xl border border-ink/10 bg-white px-3.5 text-sm outline-none focus:border-savanna-500";
@@ -25,6 +26,7 @@ export function BookingSheet({
   travelers,
   currency,
   onBooked,
+  alternatives = [],
 }: {
   item: CatalogItem | null;
   open: boolean;
@@ -35,6 +37,8 @@ export function BookingSheet({
   travelers: number;
   currency: Currency;
   onBooked?: (ref: string) => void;
+  /** other places to book the same kind of thing (operators' sites, affiliates), shown after a request */
+  alternatives?: CatalogItem[];
 }) {
   const { data } = useSession();
   const [start, setStart] = useState(date);
@@ -116,6 +120,7 @@ export function BookingSheet({
                 <p className="mt-4 rounded-full bg-ink px-3 py-1 font-display text-sm font-bold text-white">{done.ref}</p>
                 <p className="mt-3 max-w-sm text-sm text-ink-soft">{done.text}</p>
                 <p className="mt-2 text-xs text-ink-muted">Track it under My bookings.</p>
+                <OtherWays item={item} alternatives={alternatives} people={people} currency={currency} place={place} />
                 <button onClick={onClose} className="mt-6 h-11 rounded-full bg-ink px-6 font-display text-sm font-semibold text-white">
                   Done
                 </button>
@@ -177,6 +182,37 @@ export function BookingSheet({
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+/** After a request: the same kind of booking on other sites, so the traveller can compare or book there too. */
+function OtherWays({ item, alternatives, people, currency, place }: { item: CatalogItem; alternatives: CatalogItem[]; people: number; currency: Currency; place?: string }) {
+  const links = [
+    ...alternatives.map((a) => ({ id: a.id, href: a.book.mode === "external" ? a.book.go : "#", who: a.provider, what: a.title, price: groupPrice(a, people, 1) ?? a.price, priceText: a.priceText })),
+    ...(place && (item.kind === "stay" || item.kind === "package") ? [{ id: "booking-com", href: bookingPlaceUrl(place), who: "Booking.com", what: `Stays in ${place}`, price: undefined, priceText: "Compare hotels" }] : []),
+  ].filter((l) => l.href !== "#");
+  if (!links.length) return null;
+  return (
+    <div className="mt-6 w-full text-left">
+      <p className="font-display text-xs font-semibold uppercase tracking-wider text-ink-muted">Prefer to book elsewhere?</p>
+      <ul className="mt-2 space-y-2">
+        {links.map((l) => (
+          <li key={l.id}>
+            <a href={l.href} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 rounded-2xl border border-ink/10 p-3 hover:border-savanna-500">
+              <span className="min-w-0">
+                <span className="block font-display text-sm font-semibold">{l.who}</span>
+                <span className="block truncate text-xs text-ink-muted">{l.what}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-1.5 text-right text-xs font-semibold text-savanna-700">
+                {l.price ? money(l.price, currency) : l.priceText}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[11px] text-ink-muted">Opens their site with your Tembea254 referral.</p>
+    </div>
   );
 }
 

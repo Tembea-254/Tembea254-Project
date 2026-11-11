@@ -312,6 +312,14 @@ export function CompareWorkspace({ trip, onChange, currency }: { trip: Trip; onC
         item={booking}
         open={!!booking}
         onClose={() => setBooking(null)}
+        alternatives={
+          booking
+            ? (all ?? [])
+                .filter((i) => i.id !== booking.id && i.book.mode === "external" && i.kind === booking.kind && i.places.some((p) => booking.places.includes(p)))
+                .sort((a, b) => (groupPrice(a, trip.travelers, defaultQuantity(a, 1)) ?? Infinity) - (groupPrice(b, trip.travelers, defaultQuantity(b, 1)) ?? Infinity))
+                .slice(0, 3)
+            : []
+        }
         tripId={trip.id}
         date={booking ? firstDateAt(trip, booking.places.find((p) => places.includes(p)) ?? places[0]) : trip.startDate}
         nights={booking ? nightsAt(booking.places[0]) : 1}

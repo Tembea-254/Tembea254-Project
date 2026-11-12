@@ -3,6 +3,7 @@
     python training/train_lora.py --lang kik
     python training/train_lora.py --lang kik --resume          # carry on after stopping (Ctrl+C saves first)
     python training/train_lora.py --lang kam --steps 300       # quick trial run
+    python training/train_lora.py --lang kik --resume --steps 900 --extra bt   # add back-translated WAXAL pairs
 
 Trains both directions (English <-> X and Swahili <-> X). The best checkpoint by dev chrF++ is written to
 translator-api/models/<lang>_lora/ (adapter_config.json, adapter_model.safetensors, tembea.json), ready for app.py.
@@ -34,7 +35,8 @@ def directions(rows, lang, tag_of):
     for r in rows:
         o_code = OTHER[r["other"]]
         out.append((o_code, x_code, tagged(r["o"], r["other"], tag_of(r)), r["x"]))
-        out.append((x_code, o_code, r["x"], r["o"]))
+        if not r.get("bt"):  # back-translated pairs have machine-made English: only learn to write the language
+            out.append((x_code, o_code, r["x"], r["o"]))
     return out
 
 
@@ -121,6 +123,7 @@ def main():
     ap.add_argument("--grad-ckpt", action="store_true", help="save GPU memory (slower). Try it on a 4 GB card")
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--seed", type=int, default=13)
+    ap.add_argument("--extra", nargs="*", default=[], help="extra pair files in data/<lang>/ to add, e.g. bt (bt.jsonl from backtranslate.py)")
     a = ap.parse_args()
 
     import torch
@@ -147,6 +150,15 @@ def main():
     if a.max_train:
         rng.shuffle(train_rows)
         train_rows = train_rows[: a.max_train]
+    for name in a.extra:
+        extra = data_dir / f"{name}.jsonl"
+        if not extra.exists():
+            sys.exit(f"No {extra}. For back-translation run:  python training/backtranslate.py --lang {lang}")
+        more = load_jsonl(extra)
+        # repeat the small extra set so it is not drowned out by the big corpus
+        reps = max(1, min(4, len(train_rows) // max(1, 20 * len(more))))
+        train_rows += more * reps
+        print(f"added {len(more):,} pairs from {extra.name} (x{reps})", flush=True)
 
     # The serving tag is the domain most English pairs come from: that is the style the app will ask for.
     en_domains = Counter(r["domain"] for r in train_rows if r["other"] == "en")

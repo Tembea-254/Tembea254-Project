@@ -37,6 +37,43 @@ pip install -r training/requirements-train.txt
 python -c "import torch; print('GPU' if torch.cuda.is_available() else 'CPU only')"
 ```
 
+## The quick way: one command for a whole training day
+
+After step 1 (setup), this runs everything in order on a CPU: Kamba and Kalenjin data, WAXAL text, the Kalenjin
+adapter, the Kamba adapter, more Kikuyu training with WAXAL, the pitch scores and voice samples.
+
+```powershell
+cd translator-api
+.\.venv-train\Scripts\Activate.ps1
+git pull
+powershell -ExecutionPolicy Bypass -File training\run_all.ps1            # 900 steps per language, about 6-7 hours
+powershell -ExecutionPolicy Bypass -File training\run_all.ps1 -Steps 600 # shorter day
+```
+
+Ctrl+C stops it safely. Run the same command again to carry on: finished steps are skipped and training resumes.
+Progress is also written to `training/runs/run_all.log`.
+
+## WAXAL (Google's African speech data)
+
+[google/WaxalNLP](https://huggingface.co/datasets/google/WaxalNLP) is recorded speech with its exact text
+(CC-BY-SA-4.0). For Kenya it has **Kikuyu** (~11 h, 8 voices), **Dholuo** (~7 h, 8 voices) and **Swahili**. It has no
+Kamba, Kalenjin, Taita or Maasai (its "mas" is Masaaba from Uganda, close to Lubukusu).
+
+It is speech + text in one language, not translations, so it helps in two ways:
+
+1. **Better Kikuyu writing (back-translation).** `waxal.py` keeps ~4,000 clean Kikuyu sentences, `backtranslate.py`
+   turns them into English with the current adapter, and `train_lora.py --extra bt` trains English -> Kikuyu on them.
+2. **Voices.** `voice_demo.py` speaks Kikuyu and Swahili with Meta's MMS-TTS voices (CC-BY-NC: demo only). For launch,
+   train our own voices from WAXAL audio (`waxal.py --audio` keeps the recordings and a `metadata.csv`). That needs an
+   NVIDIA GPU; on a CPU it would take days.
+
+```powershell
+python training/waxal.py --langs kik luo swa
+python training/backtranslate.py --lang kik --limit 1200
+python training/train_lora.py --lang kik --resume --steps 900 --extra bt
+python training/voice_demo.py --lang kik --text "Bas ĩrĩa ĩrathiĩ Nyeri ĩkoragwo kũ?"
+```
+
 ## 2. Get the data (about 400 MB of downloads, 5 to 10 minutes)
 
 ```powershell
@@ -114,6 +151,8 @@ numbers to `models/<lang>_lora/eval.json`. These make a good slide: "our model v
 | OPUS MT560 (michsethowusu) | CC BY 4.0 | Yes |
 | NLLB mined Kamba–Swahili (michsethowusu) | ODC-BY | Yes |
 | Lacuna Fund Kalenjin–Swahili (Zenodo 13355021) | Apache-2.0 | Yes. Mostly already inside Biatus, so few new pairs |
+| google/WaxalNLP (Kikuyu, Dholuo, Swahili text and audio) | CC-BY-SA-4.0 | Yes. Credit "WAXAL (Google Research et al.)" |
+| facebook/mms-tts-kik, mms-tts-swh (voices) | CC-BY-NC-4.0 | Demo only, not for commercial launch |
 | tketer/KalenjinEnglish (NIV Bible) | MIT on the dataset, but the NIV text is copyrighted | No. Add it with `--include-restricted` for experiments only |
 
 Credit the sources in the app's About page and in the pitch. Coming soon and worth adding later: **Thiomi** (Kikuyu,

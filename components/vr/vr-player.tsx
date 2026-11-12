@@ -438,17 +438,16 @@ export function VRPlayer({ destination: d }: { destination: VRDestination }) {
                 <Lock className="h-6 w-6" />
               </span>
               <h2 className="mt-5 text-2xl font-bold text-white">That was the free preview</h2>
-              <p className="mt-2 text-white/70">Tembea Premium unlocks every full 360° walk, night scenes and offline trips.</p>
+              <p className="mt-2 text-white/70">Tembea Premium unlocks every full VR scene, including new recordings from Tembea Scouts, and shows far fewer ads.</p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <Button
                   variant="ochre"
                   size="lg"
                   onClick={() => {
-                    setProfile({ ...profile, premium: true });
-                    setLocked(false);
+                    window.location.href = "/profile#premium";
                   }}
                 >
-                  <Crown className="h-5 w-5" /> Unlock Premium (demo)
+                  <Crown className="h-5 w-5" /> Get Premium
                 </Button>
                 <Button
                   variant="glass"

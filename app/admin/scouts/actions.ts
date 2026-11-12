@@ -97,8 +97,29 @@ export async function reviewClaim(f: FormData) {
     .set({ status: "approved", reviewerNote: str(f, "reason", 400) || null, reviewedBy: me.id, reviewedAt: new Date(), payoutId })
     .where(and(eq(s.gigClaims.id, id), eq(s.gigClaims.status, "submitted")));
   if (g.rewardTokens) await grantTokens(c.userId, g.rewardTokens, `Scout job approved: ${g.title}`, "gig", g.id);
+  // The recording becomes Premium VR content: what Premium members pay for, and what lodges can sponsor.
+  let published = false;
+  if (str(f, "publishVr") === "on" && g.destination && g.kind !== "live" && c.videoUrl) {
+    const scout = (await db.select({ name: s.users.name }).from(s.users).where(eq(s.users.id, c.userId)))[0];
+    await db.insert(s.vrScenes).values({
+      id: newId("vs_"),
+      destinationSlug: g.destination,
+      mode: g.kind === "record360" ? "walk" : "view",
+      title: g.title,
+      spot: g.spot || g.title,
+      time: "day",
+      source: { kind: "video", src: c.videoUrl },
+      minutes: Math.max(1, Math.round((c.durationSec ?? g.minMinutes * 60) / 60)),
+      premium: true,
+      published: true,
+      credit: `Tembea Scout ${scout?.name ?? ""}`.trim(),
+      sort: 100,
+    });
+    published = true;
+    revalidatePath("/vr");
+  }
   await notify(c.userId, "scout", `Approved! KES ${g.payKes.toLocaleString("en-KE")} for "${g.title}" is on its way to your M-Pesa.`, "/scouts?tab=earnings");
   await audit(me, "scout.approve", id, { payKes: g.payKes, payoutId });
   revalidatePath("/scouts");
-  back("review", "ok", `Approved. A KES ${g.payKes.toLocaleString("en-KE")} payout is waiting in Payments & payouts.`);
+  back("review", "ok", `Approved. A KES ${g.payKes.toLocaleString("en-KE")} payout is waiting in Payments & payouts.${published ? " The recording is now a Premium VR scene." : ""}`);
 }

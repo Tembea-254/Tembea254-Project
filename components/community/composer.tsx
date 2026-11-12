@@ -1,4 +1,5 @@
 "use client";
+import { MARKETPLACE_ON } from "@/lib/features";
 
 import { AnimatePresence, motion } from "framer-motion";
 import { CircleDashed, HelpCircle, ImagePlus, Lightbulb, Loader2, MapPin, Megaphone, Search, ShoppingBag, Star, X } from "lucide-react";
@@ -247,9 +248,11 @@ export function Composer({ open, mode: initialMode, onClose, me, onDone }: { ope
                     ))}
                   </select>
                 </label>
-                <button onClick={() => setFindOpen(!findOpen)} className={cn("inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold", findOpen || listing ? "border-ink bg-ink text-white" : "border-ink/10")}>
-                  <ShoppingBag className="h-4 w-4" /> Tag a product or pro
-                </button>
+                {MARKETPLACE_ON && (
+                  <button onClick={() => setFindOpen(!findOpen)} className={cn("inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold", findOpen || listing ? "border-ink bg-ink text-white" : "border-ink/10")}>
+                    <ShoppingBag className="h-4 w-4" /> Tag a product or pro
+                  </button>
+                )}
               </div>
             </footer>
           </motion.div>

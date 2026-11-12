@@ -144,8 +144,11 @@ export const POST = handler(async (req: Request) => {
     else if (!exists) await db.insert(T).values({ postId, userId: me.id }).onConflictDoNothing();
     const nowOn = exists ? b.only === "on" : true;
     if (b.action === "like") {
-      const n = (await db.select({ n: sql<number>`count(*)::int` }).from(schema.postLikes).where(eq(schema.postLikes.postId, postId)))[0].n;
-      await db.update(P).set({ likeCount: n }).where(eq(P.id, postId));
+      // Adjust the stored count by this change rather than recounting, so posts that started with a
+      // count (imported or seeded) don't drop to the number of likes recorded here.
+      const delta = nowOn && !exists ? 1 : exists && !nowOn ? -1 : 0;
+      const n = Math.max(0, post.likeCount + delta);
+      if (delta) await db.update(P).set({ likeCount: sql`greatest(0, ${P.likeCount} + ${delta})` }).where(eq(P.id, postId));
       if (nowOn && !exists) await notify(post.userId, "like", `${me.name || "Someone"} liked your post`, `/community/p/${postId}`, me.id);
       return json({ liked: nowOn, likeCount: n });
     }

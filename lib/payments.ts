@@ -3,12 +3,13 @@ import { notify, track } from "./notify";
 import { getDb, schema } from "./db";
 import { newId } from "./db/ids";
 import { stkPush } from "./mpesa";
+import { grantPremiumMonth } from "./premium";
 
 /**
  * Starts an M-Pesa payment for an order or hire deposit and records it.
  * Without MPESA_* keys it runs in demo mode: the payment is marked paid immediately.
  */
-export async function startPayment(p: { userId: string; purpose: "order" | "hire_deposit"; refId: string; amount: number; phone: string; description: string }) {
+export async function startPayment(p: { userId: string; purpose: "order" | "hire_deposit" | "premium"; refId: string; amount: number; phone: string; description: string }) {
   const db = await getDb();
   const id = newId("pay_");
   const r = await stkPush(p.phone, p.amount, "Tembea254", p.description);
@@ -52,6 +53,11 @@ export async function settlePayment(paymentId: string, ok: boolean, message?: st
         }
       }
       await track(pay.refId, "paid", "Payment confirmed", receipt ? `M-Pesa ${receipt}` : "");
+    }
+  } else if (pay.purpose === "premium") {
+    if (ok) {
+      await grantPremiumMonth(pay.refId);
+      await notify(pay.refId, "settings", "Welcome to Tembea Premium: fewer ads, every VR scene, for 30 days", "/profile#premium");
     }
   } else if (pay.purpose === "hire_deposit") {
     await db.update(schema.hires).set({ status: ok ? "deposit-paid" : "requested" }).where(eq(schema.hires.id, pay.refId));

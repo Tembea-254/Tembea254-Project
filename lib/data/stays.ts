@@ -130,6 +130,12 @@ export function bookingComUrl(name: string, place: string) {
   return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(`${name}, ${place}, Kenya`)}${aid ? `&aid=${encodeURIComponent(aid)}` : ""}`;
 }
 
+/** Booking.com search for every stay at a destination, with our affiliate id when set. */
+export function bookingPlaceUrl(place: string) {
+  const aid = process.env.NEXT_PUBLIC_BOOKING_AID;
+  return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(`${place}, Kenya`)}${aid ? `&aid=${encodeURIComponent(aid)}` : ""}`;
+}
+
 /** The property's own site, or a web search for it when we haven't confirmed one. */
 export function stayWebsite(s: Stay, place: string) {
   return s.website ?? `https://www.google.com/search?q=${encodeURIComponent(`${s.name} ${place} Kenya official website`)}`;

@@ -142,7 +142,7 @@ export function Translator({ phrases }: { phrases?: Phrase[] }) {
 }
 
 function LanguageBar({ from, to, setFrom, setTo }: { from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void }) {
-  const quick = ["sw", "ki", "luo", "dav", "mas", "kln"];
+  const quick = ["sw", "ki", "luo", "dav", "kam", "mas", "kln"];
   return (
     <Card className="p-3 sm:p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

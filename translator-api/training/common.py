@@ -9,6 +9,18 @@ RUNS = HERE / "runs"  # checkpoints while training
 
 BASE_MODEL = os.getenv("BASE_MODEL", "facebook/nllb-200-distilled-600M")
 
+
+def _cached(repo: str) -> bool:
+    hub = os.getenv("HF_HUB_CACHE") or os.path.join(os.getenv("HF_HOME") or os.path.join(Path.home(), ".cache", "huggingface"), "hub")
+    snaps = Path(hub) / ("models--" + repo.replace("/", "--")) / "snapshots"
+    return any(snaps.glob("*/config.json"))
+
+
+# The base model is downloaded once. After that, work offline: newer transformers versions still ask huggingface.co
+# about the model on every load, and on a shaky connection that one request crashes the whole run (WinError 10054).
+if os.getenv("HF_HUB_OFFLINE") is None and _cached(BASE_MODEL):
+    os.environ["HF_HUB_OFFLINE"] = "1"
+
 # Same adapter shape as the Dholuo and Taita adapters, so app.py loads them the same way.
 LORA = dict(r=16, lora_alpha=32, lora_dropout=0.05, target_modules=["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"])
 

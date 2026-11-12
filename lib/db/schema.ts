@@ -38,6 +38,8 @@ export const users = pgTable(
     credits: integer("credits").notNull().default(5),
     /** subscription: free (ads every ~20 s) | pro (ads about once an hour, unlimited planner) */
     plan: text("plan").$type<UserPlan>().notNull().default("free"),
+    /** when a paid Premium month runs out; null = no end date (given by an admin) */
+    proUntil: timestamp("pro_until", { withTimezone: true }),
     /** public profile: @handle and a short bio (community) */
     handle: text("handle"),
     bio: text("bio").notNull().default(""),
@@ -780,7 +782,7 @@ export const wishlist = pgTable("wishlist", { userId: text("user_id").notNull(),
 /* Money                                                               */
 /* ------------------------------------------------------------------ */
 
-export type PaymentPurpose = "order" | "hire_deposit";
+export type PaymentPurpose = "order" | "hire_deposit" | "premium";
 
 export const payments = pgTable(
   "payments",

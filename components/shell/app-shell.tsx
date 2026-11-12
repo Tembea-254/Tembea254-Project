@@ -33,8 +33,22 @@ export function AppShell({ children, access }: { children: React.ReactNode; acce
 }
 
 function Sidebar({ pathname, access }: { pathname: string; access?: WorkspaceAccess }) {
-  const [profile] = useProfile();
+  const [profile, setProfile] = useProfile();
   const mounted = useMounted();
+  // Premium lives on the account (paid by M-Pesa or given by an admin): mirror it for this device
+  useEffect(() => {
+    let on = true;
+    fetch("/api/premium")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { pro?: boolean } | null) => {
+        if (on && d && typeof d.pro === "boolean" && d.pro !== profile.premium) setProfile({ ...profile, premium: d.pro });
+      })
+      .catch(() => {});
+    return () => {
+      on = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[264px] flex-col border-r border-ink/[0.06] bg-white px-4 pb-5 pt-6 lg:flex">
       <Link href="/dashboard" className="px-2" aria-label="Tembea254 dashboard">

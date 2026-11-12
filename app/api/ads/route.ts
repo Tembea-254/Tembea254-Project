@@ -3,6 +3,7 @@ import { handler, json } from "@/lib/api";
 import { getDb, schema as s } from "@/lib/db";
 import { currentUser } from "@/lib/session";
 import { getSettings } from "@/lib/settings";
+import { isPro } from "@/lib/premium";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,8 @@ export const GET = handler(async (req: Request) => {
   const placement = (url.searchParams.get("placement") || "all").slice(0, 20);
   const exclude = url.searchParams.get("exclude") || "";
   const [me, settings] = await Promise.all([currentUser().catch(() => null), getSettings()]);
-  // the profile's Premium switch (a billing simulator until payments are wired) also counts as Pro
-  const pro = me?.plan === "pro" || url.searchParams.get("pro") === "1";
+  // Premium comes from the account only (a paid month or an admin grant), never from the browser
+  const pro = isPro(me as { plan: string; proUntil: Date | null } | null);
   const intervalSec = pro ? settings.adIntervalProSec : settings.adIntervalFreeSec;
   const db = await getDb();
   const now = new Date();

@@ -128,7 +128,7 @@ export function BookingSheet({
             ) : item.book.mode === "external" ? (
               <div className="space-y-4 p-5">
                 <PriceLine item={item} total={total} people={people} currency={currency} />
-                <p className="text-sm text-ink-soft">This is booked on {item.provider === "Viator" || item.provider === "GetYourGuide" ? item.provider : "the provider's own website"}. We&apos;ll open it with your Tembea254 referral, so the booking is credited to us. You pay them directly.</p>
+                <p className="text-sm text-ink-soft">This is booked on {item.provider === "Viator" || item.provider === "GetYourGuide" ? item.provider : "the provider's own website"}. You pay them directly.</p>
                 <a href={item.book.go} target="_blank" rel="noreferrer" onClick={onClose} className="flex h-12 items-center justify-center gap-2 rounded-full bg-savanna-500 font-display font-semibold text-white">
                   Continue to {item.source === "hotel" ? "their website" : item.provider} <ExternalLink className="h-4 w-4" />
                 </a>
@@ -194,7 +194,7 @@ function OtherWays({ item, alternatives, people, currency, place }: { item: Cata
   if (!links.length) return null;
   return (
     <div className="mt-6 w-full text-left">
-      <p className="font-display text-xs font-semibold uppercase tracking-wider text-ink-muted">Prefer to book elsewhere?</p>
+      <p className="font-display text-xs font-semibold uppercase tracking-wider text-ink-muted">Also available from</p>
       <ul className="mt-2 space-y-2">
         {links.map((l) => (
           <li key={l.id}>
@@ -211,7 +211,6 @@ function OtherWays({ item, alternatives, people, currency, place }: { item: Cata
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[11px] text-ink-muted">Opens their site with your Tembea254 referral.</p>
     </div>
   );
 }

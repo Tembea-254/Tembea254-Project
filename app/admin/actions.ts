@@ -40,7 +40,7 @@ export async function setUserPlan(f: FormData) {
   const id = str(f, "id");
   const plan = str(f, "plan") === "pro" ? "pro" : "free";
   const db = await getDb();
-  await db.update(s.users).set({ plan }).where(eq(s.users.id, id));
+  await db.update(s.users).set({ plan, proUntil: null }).where(eq(s.users.id, id));
   await audit(me, `user.plan.${plan}`, id);
   done("/admin/users");
 }

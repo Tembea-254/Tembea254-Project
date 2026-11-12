@@ -1,13 +1,13 @@
 "use client";
 
-import { Check, Crown, Download, Globe2, Headset, Route, Sparkles, Trash2, WifiOff } from "lucide-react";
+import { Check, Crown, Download, Headset, Route, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { LANGUAGES } from "@/lib/data/languages";
 import { useActivity, useMounted, useProfile, useTrips } from "@/lib/hooks/store";
 import { cn, type Currency } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { Badge, Card, Input, Segmented, Select, Switch } from "../ui/primitives";
+import { Badge, Card, Input, Segmented, Select } from "../ui/primitives";
 
 export function ProfileSettings() {
   const mounted = useMounted();
@@ -130,38 +130,95 @@ export function ProfileSettings() {
             <h2 className="mt-3 text-2xl font-bold text-white">Tembea Premium</h2>
             <p className="mt-1 text-white/70">Everything you need to go from dreaming to booked.</p>
             <p className="mt-4 font-display text-3xl font-bold text-white">
-              KES 499<span className="text-base font-medium text-white/60"> / month</span>
+              KES <PremiumPrice /><span className="text-base font-medium text-white/60"> / month</span>
             </p>
           </div>
           <ul className="space-y-3 p-6 text-sm">
             {[
+              { icon: Sparkles, t: "Far fewer ads: about one an hour instead of every 20 seconds" },
               { icon: Headset, t: "Every full-length & 360° VR scene" },
-              { icon: Sparkles, t: "Unlimited AI itineraries & day re-plans" },
-              { icon: WifiOff, t: "Offline trips, maps and phrasebook" },
-              { icon: Route, t: "Calendar sync & PDF export" },
-              { icon: Globe2, t: "Priority local-language translations" },
+              { icon: Route, t: "No auto-renewal: each payment adds 30 days" },
             ].map((x) => (
               <li key={x.t} className="flex items-center gap-3">
-                <span className="grid h-8 w-8 place-items-center rounded-xl bg-ochre-50 text-ochre-600">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-ochre-50 text-ochre-600">
                   <x.icon className="h-4 w-4" />
                 </span>
                 {x.t}
               </li>
             ))}
           </ul>
-          <div className="px-6 pb-6">
-            <Switch
-              checked={mounted && profile.premium}
-              onChange={(v) => {
-                setProfile({ ...profile, premium: v });
-                log({ kind: "settings", text: v ? "Activated Premium (demo)" : "Switched to the free plan", href: "/profile" });
-              }}
-              label={<span className="font-medium">Premium (demo toggle)</span>}
-            />
-            <p className="mt-2 text-xs text-ink-muted">Billing isn&apos;t connected yet — this switch simulates a subscription so you can test premium flows.</p>
-          </div>
+          <PremiumCheckout onChange={(pro) => setProfile({ ...profile, premium: pro })} log={log} />
         </Card>
       </div>
     </div>
+  );
+}
+
+type PremiumState = { pro: boolean; until: string | null; priceKes: number };
+
+function usePremiumState() {
+  const [st, setSt] = useState<PremiumState | null>(null);
+  useEffect(() => {
+    fetch("/api/premium")
+      .then((r) => r.json())
+      .then(setSt)
+      .catch(() => {});
+  }, []);
+  return [st, setSt] as const;
+}
+
+function PremiumPrice() {
+  const [st] = usePremiumState();
+  return <>{st ? st.priceKes.toLocaleString() : "499"}</>;
+}
+
+/** Premium is paid by M-Pesa and kept on the account; the server decides ads and unlocks from it. */
+function PremiumCheckout({ onChange, log }: { onChange: (pro: boolean) => void; log: (a: { kind: "settings"; text: string; href: string }) => void }) {
+  const [st, setSt] = usePremiumState();
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => {
+    if (st) onChange(st.pro);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st?.pro]);
+  if (!st) return <div className="px-6 pb-6 text-sm text-ink-muted">Checking your plan…</div>;
+  if (st.pro)
+    return (
+      <div className="px-6 pb-6">
+        <p className="flex items-center gap-2 rounded-2xl bg-savanna-50 p-3 text-sm font-semibold text-savanna-800">
+          <Check className="h-4 w-4" /> Premium is on{st.until ? ` until ${new Date(st.until).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+        </p>
+      </div>
+    );
+  return (
+    <form
+      className="space-y-2 px-6 pb-6"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setMsg(null);
+        try {
+          const r = await fetch("/api/premium", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone }) });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || "Payment could not start");
+          setMsg(d.pro ? "Payment received. Premium is on." : d.message || "Check your phone and enter your M-Pesa PIN.");
+          if (d.pro) {
+            setSt({ ...st, pro: true, until: d.until });
+            log({ kind: "settings", text: "Activated Premium", href: "/profile#premium" });
+          }
+        } catch (err) {
+          setMsg(err instanceof Error ? err.message : "Payment could not start");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <Input placeholder="M-Pesa number, e.g. 0712 345 678" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} aria-label="M-Pesa number" />
+      <Button type="submit" className="w-full" disabled={busy}>
+        <Crown className="h-4 w-4" /> {busy ? "Starting payment…" : `Pay KES ${st.priceKes.toLocaleString()} with M-Pesa`}
+      </Button>
+      {msg && <p className="text-xs text-ink-muted">{msg}</p>}
+    </form>
   );
 }

@@ -10,7 +10,7 @@ import argparse
 import json
 import sys
 
-from common import BASE_MODEL, DATA, LANGS, MODELS, OTHER, device, tagged
+from common import BASE_MODEL, DATA, LANGS, MODELS, OTHER, device, tagged, read_json
 from train_lora import load_jsonl, translate
 
 
@@ -34,7 +34,7 @@ def main():
     adapter_dir = MODELS / f"{lang}_lora"
     if not (adapter_dir / "adapter_config.json").exists():
         sys.exit(f"No adapter at {adapter_dir}. Train it first:  python training/train_lora.py --lang {lang}")
-    meta = json.loads((adapter_dir / "tembea.json").read_text(encoding="utf-8")) if (adapter_dir / "tembea.json").exists() else {}
+    meta = read_json(adapter_dir / "tembea.json")
     tag = meta.get("tag", "general")
     code = {**OTHER, lang: LANGS[lang]["nllb"]}
 

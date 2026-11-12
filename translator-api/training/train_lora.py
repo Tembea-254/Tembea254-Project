@@ -20,7 +20,7 @@ import sys
 import time
 from collections import Counter, defaultdict
 
-from common import BASE_MODEL, DATA, LANGS, LORA, MODELS, OTHER, RUNS, device, tagged
+from common import BASE_MODEL, DATA, LANGS, LORA, MODELS, OTHER, RUNS, device, tagged, read_json
 
 
 def load_jsonl(path):
@@ -187,7 +187,7 @@ def main():
         except (OSError, ValueError):
             # state.json was cut off (the run was killed while saving). Rebuild it from the saved best adapter.
             meta_p = MODELS / f"{lang}_lora" / "tembea.json"
-            meta = json.loads(meta_p.read_text(encoding="utf-8")) if meta_p.exists() else {}
+            meta = read_json(meta_p)
             state = {"step": int(meta.get("step", 0)), "best": float(meta.get("dev_chrf", -1.0)), "history": []}
             print(f"state.json was damaged; rebuilt it from the saved adapter (step {state['step']})", flush=True)
         print(f"resuming from step {state['step']} (best dev chrF++ {state['best']:.1f})")
@@ -231,7 +231,7 @@ def main():
         out.mkdir(parents=True, exist_ok=True)
         model.save_pretrained(str(out))
         meta_src = json.loads((data_dir / "meta.json").read_text(encoding="utf-8")) if (data_dir / "meta.json").exists() else {}
-        (out / "tembea.json").write_text(json.dumps({
+        (out / "tembea.json.tmp").write_text(json.dumps({
             "lang": lang,
             "app_code": LANGS[lang]["app_code"],
             "nllb_code": LANGS[lang]["nllb"],
@@ -242,6 +242,7 @@ def main():
             "dev_chrf": round(score, 2),
             "sources": meta_src.get("sources", []),
         }, indent=2, ensure_ascii=False), encoding="utf-8")
+        os.replace(out / "tembea.json.tmp", out / "tembea.json")
         print(f"  saved best adapter -> {out}", flush=True)
 
     stop = {"now": False}

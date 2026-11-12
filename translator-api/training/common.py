@@ -1,4 +1,5 @@
 """Settings shared by the training and evaluation scripts. Keep them in step with ../app.py."""
+import json
 import os
 from pathlib import Path
 
@@ -49,3 +50,11 @@ def device():
 def tagged(text: str, src: str, tag: str | None) -> str:
     """English input carries the domain tag, exactly as app.py adds it at serving time."""
     return f"[{tag}] {text}" if tag and src == "en" else text
+
+
+def read_json(path, default=None):
+    """Read a small JSON file; a missing or damaged one (a run killed mid-save) gives `default` instead of a crash."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {} if default is None else default

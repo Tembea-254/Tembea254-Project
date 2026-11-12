@@ -17,6 +17,10 @@
 param([int]$Steps = 900, [int]$BtLimit = 1200)
 
 $ErrorActionPreference = "Continue"
+# Python output goes through Tee-Object: without this Windows uses cp1252 and crashes on letters like ĩ or ũ
+$env:PYTHONIOENCODING = "utf-8"
+$env:PYTHONUTF8 = "1"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 New-Item -ItemType Directory -Force training\runs | Out-Null
 $log = "training\runs\run_all.log"
 function Run([string]$title, [string[]]$cmd) {

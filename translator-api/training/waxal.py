@@ -1,6 +1,7 @@
 """Download Google's WAXAL speech data for the Kenyan languages it has, on your own PC.
 
-    python training/waxal.py                      # Kikuyu, Dholuo, Swahili: text only (~2 GB to read, ~2 MB kept)
+    python training/waxal.py                      # Kikuyu, Dholuo, Swahili text: uses the copy in waxal_text/ (instant)
+    python training/waxal.py --download           # rebuild the text from Hugging Face (reads ~2.8 GB of audio files)
     python training/waxal.py --langs kik --audio  # also keep the recordings + metadata.csv for voice training later
 
 WAXAL (google/WaxalNLP on Hugging Face) is read speech with its exact text. For Kenya it has Kikuyu (kik_tts, ~11 h,
@@ -35,7 +36,18 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--langs", nargs="+", default=["kik", "luo", "swa"], choices=sorted(SETS))
     ap.add_argument("--audio", action="store_true", help="also keep the recordings (Kikuyu ~750 MB, Dholuo ~690 MB)")
+    ap.add_argument("--download", action="store_true", help="rebuild the text from Hugging Face instead of waxal_text/")
     a = ap.parse_args()
+
+    bundled = DATA.parent / "waxal_text"
+    if not (a.audio or a.download):
+        for lang in a.langs:
+            out = DATA / "waxal" / lang
+            out.mkdir(parents=True, exist_ok=True)
+            text = (bundled / f"{lang}.txt").read_text(encoding="utf-8")
+            (out / "sentences.txt").write_text(text, encoding="utf-8")
+            print(f"{lang}: {len(text.splitlines()):,} sentences -> {out / 'sentences.txt'}", flush=True)
+        return
 
     import pandas as pd
     from huggingface_hub import HfApi, hf_hub_download

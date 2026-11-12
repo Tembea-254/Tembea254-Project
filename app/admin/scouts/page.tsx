@@ -109,6 +109,12 @@ async function Review() {
               <form action={reviewClaim} className="flex flex-wrap gap-2">
                 <input type="hidden" name="id" value={c.id} />
                 <input type="hidden" name="decision" value="approve" />
+                {g.destination && g.kind !== "live" && (
+                  <label className="flex w-full items-center gap-2 text-sm">
+                    <input type="checkbox" name="publishVr" defaultChecked className="h-4 w-4 accent-savanna-600" />
+                    Publish it to the VR library as a Premium scene
+                  </label>
+                )}
                 <Submit>Approve and pay {kes(g.payKes)}</Submit>
               </form>
               <form action={reviewClaim} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">

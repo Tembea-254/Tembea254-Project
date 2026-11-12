@@ -182,7 +182,14 @@ def main():
     state = {"step": 0, "best": -1.0, "history": []}
     if a.resume and (ckpt / "adapter_config.json").exists():
         model = PeftModel.from_pretrained(model, str(ckpt), is_trainable=True)
-        state = json.loads((run_dir / "state.json").read_text())
+        try:
+            state = json.loads((run_dir / "state.json").read_text())
+        except (OSError, ValueError):
+            # state.json was cut off (the run was killed while saving). Rebuild it from the saved best adapter.
+            meta_p = MODELS / f"{lang}_lora" / "tembea.json"
+            meta = json.loads(meta_p.read_text(encoding="utf-8")) if meta_p.exists() else {}
+            state = {"step": int(meta.get("step", 0)), "best": float(meta.get("dev_chrf", -1.0)), "history": []}
+            print(f"state.json was damaged; rebuilt it from the saved adapter (step {state['step']})", flush=True)
         print(f"resuming from step {state['step']} (best dev chrF++ {state['best']:.1f})")
     else:
         if run_dir.exists() and not a.resume:
@@ -197,9 +204,14 @@ def main():
     opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=a.lr, weight_decay=0.01)
     sched = get_linear_schedule_with_warmup(opt, min(200, steps // 10), steps)
     if a.resume and (run_dir / "optim.pt").exists():
-        saved = torch.load(run_dir / "optim.pt", map_location="cpu")
-        opt.load_state_dict(saved["opt"])
-        sched.load_state_dict(saved["sched"])
+        try:
+            saved = torch.load(run_dir / "optim.pt", map_location="cpu")
+            opt.load_state_dict(saved["opt"])
+            sched.load_state_dict(saved["sched"])
+        except Exception as e:  # damaged by a killed run: carry on with a fresh optimiser
+            print(f"could not load optim.pt ({type(e).__name__}); using a fresh optimiser", flush=True)
+            for _ in range(min(state["step"], steps)):
+                sched.step()
 
     use_amp = dev == "cuda"
     amp_dtype = torch.bfloat16 if use_amp and torch.cuda.is_bf16_supported() else torch.float16
@@ -208,8 +220,11 @@ def main():
     def save_last():
         run_dir.mkdir(parents=True, exist_ok=True)
         model.save_pretrained(str(ckpt))
-        torch.save({"opt": opt.state_dict(), "sched": sched.state_dict()}, run_dir / "optim.pt")
-        (run_dir / "state.json").write_text(json.dumps(state, indent=2))
+        # write to a temp file first, then swap it in, so a killed run can't leave a half-written file
+        torch.save({"opt": opt.state_dict(), "sched": sched.state_dict()}, run_dir / "optim.pt.tmp")
+        os.replace(run_dir / "optim.pt.tmp", run_dir / "optim.pt")
+        (run_dir / "state.json.tmp").write_text(json.dumps(state, indent=2))
+        os.replace(run_dir / "state.json.tmp", run_dir / "state.json")
 
     def save_best(score):
         out = MODELS / f"{lang}_lora"

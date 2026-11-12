@@ -30,7 +30,10 @@ function Run([string]$title, [string[]]$cmd) {
     & python @cmd 2>&1 | Tee-Object -FilePath $log -Append
     if ($LASTEXITCODE -ne 0) { Write-Host "Step failed: $title (see $log). Carrying on with the next step." -ForegroundColor Yellow }
 }
-function Done([string]$lang) { return (Test-Path "models\${lang}_lora\adapter_config.json") -and (Test-Path "training\runs\$lang\state.json") -and ((Get-Content "training\runs\$lang\state.json" | ConvertFrom-Json).step -ge $Steps) }
+function Done([string]$lang) {
+    if (-not ((Test-Path "models\${lang}_lora\adapter_config.json") -and (Test-Path "training\runs\$lang\state.json"))) { return $false }
+    try { return ((Get-Content -Raw "training\runs\$lang\state.json" | ConvertFrom-Json).step -ge $Steps) } catch { return $false }
+}
 
 if (-not ((Test-Path training\data\kam\train.jsonl) -and (Test-Path training\data\kln\train.jsonl))) { Run "1/6 Download Kamba + Kalenjin data" @("training/download_data.py", "--langs", "kam", "kln") }
 if (-not (Test-Path training\data\waxal\luo\sentences.txt)) { Run "2/6 WAXAL text (Kikuyu, Dholuo, Swahili)" @("training/waxal.py", "--langs", "kik", "luo", "swa") }

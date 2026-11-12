@@ -21,7 +21,8 @@ export interface Language {
 export const LANGUAGES: Language[] = [
   { code: "en", name: "English", native: "English", speech: "en-GB", mt: "en" },
   { code: "sw", name: "Swahili", native: "Kiswahili", kenyan: true, speech: "sw-KE", mt: "sw" },
-  { code: "ki", name: "Kikuyu", native: "Gĩkũyũ", kenyan: true, local: true, speech: "sw-KE" },
+  { code: "ki", name: "Kikuyu", native: "Gĩkũyũ", kenyan: true, local: true, api: "nllb", experimental: true, speech: "sw-KE" },
+  { code: "kam", name: "Kamba", native: "Kikamba", kenyan: true, local: true, api: "nllb", experimental: true, speech: "sw-KE" },
   { code: "luo", name: "Luo", native: "Dholuo", kenyan: true, local: true, api: "nllb", experimental: true, speech: "sw-KE" },
   { code: "dav", name: "Taita", native: "Taita", kenyan: true, local: true, api: "nllb", experimental: true, speech: "sw-KE" },
   { code: "mas", name: "Maasai", native: "Maa", kenyan: true, local: true, speech: "sw-KE" },

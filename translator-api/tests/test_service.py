@@ -44,3 +44,25 @@ def test_queue_limit():
     svc.inflight = svc.MAX_QUEUE
     assert post(c, {"text": "hi", "from": "en", "to": "sw"}).status_code == 503
     svc.inflight = 0
+
+
+def test_new_kenyan_languages():
+    c = client()
+    # Kikuyu and Kamba go through English like the other local languages
+    assert post(c, {"text": "x", "from": "ki", "to": "fr"}).json()["text"] == "[en>fr] [ki>en] x"
+    assert post(c, {"text": "Hello", "from": "en", "to": "kam"}).json()["text"] == "[en>kam] Hello"
+    # an adapter trained on Swahili pairs translates Swahili directly
+    svc.DIRECT_SW.add("kik")
+    try:
+        assert post(c, {"text": "x", "from": "sw", "to": "ki"}).json()["text"] == "[sw>ki] x"
+    finally:
+        svc.DIRECT_SW.discard("kik")
+    assert post(c, {"text": "x", "from": "sw", "to": "ki"}).json()["text"] == "[en>ki] [sw>en] x"
+    # without its adapter Kalenjin is refused as unsupported (400), never served as plain Dholuo
+    svc.FAKE = False
+    try:
+        assert svc.engine.supports("ki") and svc.engine.supports("kam")
+        assert not svc.engine.supports("kln")
+        assert post(c, {"text": "x", "from": "en", "to": "kln"}).status_code == 400
+    finally:
+        svc.FAKE = True

@@ -1,0 +1,10 @@
+# Install torch FIRST with the command for your machine (see training/README.md), then:  pip install -r training/requirements-train.txt
+transformers>=4.44,<5
+peft>=0.12
+sentencepiece>=0.2
+accelerate>=0.30
+huggingface_hub>=0.23
+sacrebleu>=2.4
+pandas>=2.0
+pyarrow>=14
+openpyxl>=3.1
